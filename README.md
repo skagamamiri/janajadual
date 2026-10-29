@@ -9,7 +9,6 @@ HTML + JavaScript, simpanan Supabase. UI dalam Bahasa Melayu.
 |---|---|
 | `index.html` | Aplikasi: Tetapan, Guru, Kelas, Subjek & Bilik, Agihan, Jana, Jadual (editor), Cetak & Terbit |
 | `jana-jadual-engine.js` | Enjin: model data, kekangan, penjana automatik, import/eksport format `jadual.html` |
-| `ict-header.js` | Salinan header bersama ICT HUB (dari `skagamamiri/tools`) |
 | `supabase/skema.sql` | Jadual `tt_projek`, `tt_terbit`, `tt_kunci` + fungsi RPC berkata laluan |
 
 ## Pemasangan
@@ -20,7 +19,7 @@ HTML + JavaScript, simpanan Supabase. UI dalam Bahasa Melayu.
    Alamat: `https://skagamamiri.github.io/janajadual/`
 3. Dalam aplikasi: **Projek → Sambungan** → tampal anon/publishable key
    (atau isi `SUPABASE_KEY_LALAI` dalam `index.html`).
-4. Tambah ke Panel Pentadbir ICT HUB sebagai tool jenis URL.
+4. Tambah ke Panel Pentadbir ICT HUB sebagai tool jenis URL (halaman ini tiada header sendiri; ICT HUB menyediakan bingkai/header).
 
 Tanpa Supabase aplikasi tetap berfungsi (simpanan pelayar + muat turun fail projek).
 
