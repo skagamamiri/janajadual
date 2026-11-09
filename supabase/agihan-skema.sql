@@ -219,3 +219,15 @@ create table public.pengguna (
 -- public.agihan_untuk_jana() -> {agihan:[{kelas,tahun,subjek_kod,slot,guru,waktu}], guruKelas:[{kelas,guru}]}
 --   (anon boleh panggil — untuk Jana Jadual; data sama seperti jadual waktu awam)
 -- Definisi penuh: migration "peranan_pengguna" dalam projek agihan-guru.
+
+-- =====================================================================
+-- KEMAS KINI: versi agihan (migration "versi_agihan")
+-- =====================================================================
+-- public.versi(id, nama, catatan, aktif [satu sahaja = versi semasa], dikunci, created_at, created_by)
+-- public.allocations.versi_id  -> unique (versi_id, subject_code, class_name, slot)
+-- public.guru_kelas(versi_id, class_name, teacher_id)   (menggantikan classes.guru_kelas_id)
+-- private.versi_terbuka(id): versi tidak dikunci — syarat untuk ubah agihan & guru kelas
+-- public.cipta_versi(p_nama, p_sumber, p_mod 'kosong'|'salin', p_kosong_tidak_aktif, p_salin_guru_kelas, p_aktifkan, p_catatan) -> id   [admin]
+-- public.aktifkan_versi(p_id)   [admin]
+-- public.simpan_agihan(p_changes, p_guru_kelas, p_versi)
+-- public.agihan_untuk_jana(p_versi default versi semasa) -> {versi, agihan, guruKelas}

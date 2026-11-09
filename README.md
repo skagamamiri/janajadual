@@ -57,8 +57,19 @@ Menggantikan Google Sheet **AGIHAN JADUAL**. Guna projek Supabase berasingan, **
 | **Ketua Panitia** | Ubah agihan bagi subjek panitia yang ditanda oleh admin; lihat yang lain |
 | **Guru** | Lihat sahaja (termasuk kad "Beban waktu anda" dan slip sendiri) |
 
-Admin urus pengguna di tab **Pengguna**: tukar peranan, tanda subjek panitia, pautkan kepada nama guru,
-nyahaktif, atau **Daftar pukal** (tampal senarai DELIMa: Nama ⇥ … ⇥ Email). Setiap perubahan direkod dalam log.
+Tab **Admin** (admin sahaja):
+- **Versi agihan** — setiap versi menyimpan agihan & guru kelas sendiri. *Versi semasa* dipaparkan secara lalai
+  dan digunakan oleh Jana Jadual. **+ Versi baharu**: *Kosong* (semua slot kosong) atau *Salin* dari versi lain
+  (pilihan: kosongkan slot guru tidak aktif — cth. guru berpindah; salin guru kelas). Tindakan lain: Lihat,
+  Jadikan semasa, Kunci/Buka kunci (versi dikunci tidak boleh disunting), Nama, Padam (bukan versi semasa).
+  Semua pengguna boleh menukar versi yang dilihat melalui pemilih **VERSI** di atas.
+- **Pengguna & peranan** — tukar peranan, tanda subjek panitia, pautkan kepada nama guru, nyahaktif,
+  atau **Daftar pukal** (tampal senarai DELIMa: Nama ⇥ … ⇥ Email).
+- **Log perubahan** — siapa ubah apa, bila (termasuk versi).
+
+Aliran bila guru berpindah: Beban Waktu Guru → guru itu → *Tukar nama / status* → nyahtanda Aktif →
+Admin → Versi → *Salin* versi semasa dengan "kosongkan slot guru tidak aktif" → ketua panitia isi slot kosong →
+*Jadikan semasa* → Jana Jadual → Import agihan → Ambil.
 
 ### Persediaan log masuk Google (sekali sahaja, oleh admin)
 1. **Google Cloud Console** (console.cloud.google.com, guna akaun DELIMa admin/sekolah) → APIs & Services →
@@ -72,7 +83,7 @@ nyahaktif, atau **Daftar pukal** (tampal senarai DELIMa: Nama ⇥ … ⇥ Email)
 
 Sesiapa boleh log masuk dengan Google, tetapi hanya email dalam jadual `pengguna` (aktif) boleh melihat data.
 
-Untuk Jana Jadual: fungsi `agihan_untuk_jana()` memberi kelas, subjek, guru & waktu (boleh dipanggil dengan kunci anon).
+Untuk Jana Jadual: fungsi `agihan_untuk_jana(p_versi)` memberi kelas, subjek, guru & waktu bagi versi semasa (atau versi dipilih); boleh dipanggil dengan kunci anon.
 
 ## Peraturan penjana
 

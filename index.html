@@ -386,7 +386,7 @@ async function ambilAgihanGuru() {
   const r = await fetch(AGIHAN_URL + "/rest/v1/rpc/agihan_untuk_jana", { method: "POST", headers: { ...h, "Content-Type": "application/json" }, body: "{}" });
   if (!r.ok) throw new Error("Agihan Guru: HTTP " + r.status);
   const d = await r.json();
-  return { agihan: d.agihan || [], guruKelas: (d.guruKelas || []).map(k => ({ kod: E.kodKelasAgihan(k.kelas), guru: k.guru || "" })) };
+  return { versi: d.versi?.nama || "", agihan: d.agihan || [], guruKelas: (d.guruKelas || []).map(k => ({ kod: E.kodKelasAgihan(k.kelas), guru: k.guru || "" })) };
 }
 async function importDariAgihanGuru(ganti) {
   const d = await ambilAgihanGuru();
@@ -397,7 +397,7 @@ async function importDariAgihanGuru(ganti) {
   let gk = 0;
   for (const g of d.guruKelas) { const k = P.kelas.find(x => String(x.kod).toUpperCase() === g.kod.toUpperCase()); if (k && g.guru && k.guruKelas !== g.guru) { k.guruKelas = g.guru; gk++; } }
   tutupModal(); ditukar(); render();
-  modal(`<h2>Import dari Agihan Guru selesai</h2><p>${lap.tambah} pelajaran ${ganti ? "(agihan lama diganti)" : "ditambah"}. Baharu: ${lap.kelasBaru} kelas, ${lap.guruBaru} guru, ${lap.subjekBaru} subjek.${gk ? ` Guru kelas dikemas kini: ${gk}.` : ""}</p>
+  modal(`<h2>Import dari Agihan Guru selesai</h2>${d.versi ? `<p class="muted small" style="margin-top:0">Versi: <b>${esc(d.versi)}</b> (versi semasa)</p>` : ""}<p>${lap.tambah} pelajaran ${ganti ? "(agihan lama diganti)" : "ditambah"}. Baharu: ${lap.kelasBaru} kelas, ${lap.guruBaru} guru, ${lap.subjekBaru} subjek.${gk ? ` Guru kelas dikemas kini: ${gk}.` : ""}</p>
     ${lap.guruBaru ? `<p class="muted small">Guru baharu mungkin ejaan berbeza daripada senarai sedia ada — semak di tab Guru.</p>` : ""}
     ${lap.ralat.length ? `<p class="pill bad">${lap.ralat.length} ralat</p><ul class="small">${lap.ralat.slice(0, 30).map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
     <div class="row"><button data-tutup class="pri">OK</button></div>`);
@@ -405,7 +405,7 @@ async function importDariAgihanGuru(ganti) {
 function dlgImportAgihan() {
   modal(`<h2>Import agihan guru</h2>
     <div class="item" style="margin-bottom:12px"><i class="fa-solid fa-cloud-arrow-down" style="color:var(--acc)"></i>
-      <div class="t"><b>Terus dari sistem Agihan Guru</b><span class="muted small">Data terkini dari <a href="agihan.html" target="_blank">agihan.html</a>. PSM→MZK, PJPK→PJ+PK, PI→PI-U, PI-J, PI-Q, TAS (guru PI + guru kolaborasi). Pecahan blok sedia ada dikekalkan.</span></div>
+      <div class="t"><b>Terus dari sistem Agihan Guru</b><span class="muted small">Versi semasa dari <a href="agihan.html" target="_blank">agihan.html</a>. PSM→MZK, PJPK→PJ+PK, PI→PI-U, PI-J, PI-Q, TAS (guru PI + guru kolaborasi). Pecahan blok sedia ada dikekalkan.</span></div>
       <button class="pri mini" id="bAgihan">Ambil</button></div>
     <p class="muted small" style="margin-top:0">… atau dari fail / tampal. Lajur (baris pertama tajuk): <b>Kelas, Subjek, Guru, Masa</b>, Pecahan, Bilik.<br>
     Masa = bilangan masa ${P.tetapan.minitSlot} minit seminggu. Guru bersama dipisah dengan "/". Pecahan contoh <code>2+2+1</code> (pilihan).</p>
