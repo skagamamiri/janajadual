@@ -10,6 +10,8 @@ HTML + JavaScript, simpanan Supabase. UI dalam Bahasa Melayu.
 | `index.html` | Aplikasi: Tetapan, Guru, Kelas, Subjek & Bilik, Agihan, Jana, Jadual (editor), Cetak & Terbit |
 | `jana-jadual-engine.js` | Enjin: model data, kekangan, penjana automatik, import/eksport format `jadual.html` |
 | `supabase/skema.sql` | Jadual `tt_projek`, `tt_terbit`, `tt_kunci` + fungsi RPC berkata laluan |
+| `agihan.html` | **Agihan Guru Mata Pelajaran** — sistem agihan guru (lihat bahagian di bawah) |
+| `supabase/agihan-skema.sql` | Skema Supabase untuk Agihan Guru (rujukan) |
 
 ## Pemasangan
 
@@ -30,6 +32,30 @@ Tanpa Supabase aplikasi tetap berfungsi (simpanan pelayar + muat turun fail proj
   Lajur: `Kelas, Subjek, Guru, Masa, Pecahan, Bilik` (guru kolaborasi dipisah `/`, 1 masa = 30 minit).
 - **Terbit**: ke Supabase `tt_terbit` (format `{teachers, classes}` sama seperti `VERSION_DATA.data`),
   atau salin blok `VERSION_DATA` untuk ditampal ke `tools/jadual.html`.
+
+## Agihan Guru Mata Pelajaran (`agihan.html`)
+
+Alamat: `https://skagamamiri.github.io/janajadual/agihan.html`
+
+Menggantikan Google Sheet **AGIHAN JADUAL**. Guna projek Supabase berasingan, **agihan-guru**
+(`https://upeohhckgenamwggajip.supabase.co`), dan sudah diisi dengan data sheet (53 guru, 24 kelas, 13 subjek, 384 slot).
+
+- **Agihan**: pilih guru bagi setiap subjek × kelas; jumlah waktu guru dikira serta-merta.
+- **Beban Waktu Guru**: waktu seminggu setiap guru, tambah / tukar nama / nyahaktif guru, slip guru.
+- **Rumusan Kelas**: guru setiap kelas, guru kelas, matriks semua kelas.
+- **Eksport & Cetak**: jam kredit, CSV aSc Timetables, cetakan.
+
+Semua orang boleh melihat. Hanya **editor** yang log masuk (email + kata laluan) boleh mengubah —
+dikuatkuasakan oleh RLS dalam database. Setiap perubahan direkod dalam `audit_log`.
+
+Persediaan log masuk (sekali sahaja):
+1. Supabase → projek *agihan-guru* → **Authentication → Users → Add user** → email + kata laluan,
+   tandakan **Auto Confirm User**. (`sab2989@gmail.com` sudah didaftarkan sebagai editor.)
+2. (Disyorkan) **Authentication → Sign In / Providers → Email** → matikan *Allow new users to sign up*.
+3. Editor lain: cipta akaun di langkah 1, kemudian tambah email dalam agihan.html → ⚙ Tetapan → Editor.
+
+Untuk sistem lain (cth. Jana Jadual): view `v_agihan` memberi `kelas, tahun, tahap, subjek_kod, subjek, slot, guru, waktu`
+dan boleh dibaca dengan kunci anon.
 
 ## Peraturan penjana
 
