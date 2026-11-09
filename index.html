@@ -174,6 +174,9 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": 
 const SUPABASE_URL_LALAI = "https://ifqgstspfxagzstccsin.supabase.co";
 const SUPABASE_KEY_LALAI = ""; // tampal anon/publishable key di sini, atau isi melalui butang Projek > Sambungan
 const JADUAL_HTML_URL = "https://skagamamiri.github.io/tools/jadual.html"; // jadual semasa ICT HUB
+// Agihan Guru (agihan.html) — projek Supabase berasingan, dibaca dengan kunci anon (baca sahaja)
+const AGIHAN_URL = "https://upeohhckgenamwggajip.supabase.co";
+const AGIHAN_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZW9oaGNrZ2VuYW13Z2dhamlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjg0ODIsImV4cCI6MjEwOTgwNDQ4Mn0.4aHGDElXA7FtkdFTebMapeeUe8AOG-OuktF9UAp6mbg";
 const K_CFG = "janajadual_cfg", K_LOCAL = "janajadual_projek", K_KUNCI = "janajadual_kunci";
 function bacaLS(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function tulisLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -318,7 +321,7 @@ function tRingkasan() {
     <h2>Mula di sini</h2>
     <div class="list">
       <div class="item"><i class="fa-solid fa-file-import" style="color:var(--acc)"></i><div class="t"><b>Import daripada jadual semasa (jadual.html)</b><span class="muted small">Ambil guru, kelas, subjek & agihan daripada versi jadual sedia ada.</span></div><button class="pri mini" onclick="dlgImportJadual()">Import</button></div>
-      <div class="item"><i class="fa-solid fa-table-list" style="color:var(--acc)"></i><div class="t"><b>Import agihan (Agihan Guru)</b><span class="muted small">CSV / tampal dari Google Sheet / URL Apps Script.</span></div><button class="mini" onclick="dlgImportAgihan()">Import</button></div>
+      <div class="item"><i class="fa-solid fa-table-list" style="color:var(--acc)"></i><div class="t"><b>Import agihan (Agihan Guru)</b><span class="muted small">Terus dari sistem Agihan Guru, atau CSV / tampal dari Google Sheet.</span></div><button class="mini" onclick="dlgImportAgihan()">Import</button></div>
       <div class="item"><i class="fa-solid fa-file-circle-plus" style="color:var(--acc)"></i><div class="t"><b>Projek kosong</b><span class="muted small">Mula dari awal dengan tetapan sekolah lalai.</span></div><button class="mini" onclick="projekBaru()">Baharu</button></div>
     </div>
     <p class="muted small" style="margin:10px 0 0">Aliran kerja: Tetapan → Guru/Kelas/Subjek → Agihan → <b>Jana</b> → semak & ubah di tab Jadual → Cetak & Terbit.</p>
@@ -377,9 +380,35 @@ function tunjukVersi() {
 }
 
 /* --- import agihan --- */
+async function ambilAgihanGuru() {
+  const h = { apikey: AGIHAN_KEY, Authorization: "Bearer " + AGIHAN_KEY };
+  const get = async p => { const r = await fetch(AGIHAN_URL + "/rest/v1/" + p, { headers: h }); if (!r.ok) throw new Error("Agihan Guru: HTTP " + r.status); return r.json(); };
+  const [agihan, kelas] = await Promise.all([
+    get("v_agihan?select=kelas,tahun,subjek_kod,slot,guru,waktu&limit=10000"),
+    get("classes?select=name,guru_kelas:teachers(name)")
+  ]);
+  return { agihan, guruKelas: kelas.map(k => ({ kod: E.kodKelasAgihan(k.name), guru: k.guru_kelas?.name || "" })) };
+}
+async function importDariAgihanGuru(ganti) {
+  const d = await ambilAgihanGuru();
+  const rows = E.barisDariAgihanGuru(d.agihan, P);
+  if (!rows.length) return toast("Tiada data dalam Agihan Guru");
+  snap();
+  const lap = E.importAgihan(P, rows, ganti);
+  let gk = 0;
+  for (const g of d.guruKelas) { const k = P.kelas.find(x => String(x.kod).toUpperCase() === g.kod.toUpperCase()); if (k && g.guru && k.guruKelas !== g.guru) { k.guruKelas = g.guru; gk++; } }
+  tutupModal(); ditukar(); render();
+  modal(`<h2>Import dari Agihan Guru selesai</h2><p>${lap.tambah} pelajaran ${ganti ? "(agihan lama diganti)" : "ditambah"}. Baharu: ${lap.kelasBaru} kelas, ${lap.guruBaru} guru, ${lap.subjekBaru} subjek.${gk ? ` Guru kelas dikemas kini: ${gk}.` : ""}</p>
+    ${lap.guruBaru ? `<p class="muted small">Guru baharu mungkin ejaan berbeza daripada senarai sedia ada — semak di tab Guru.</p>` : ""}
+    ${lap.ralat.length ? `<p class="pill bad">${lap.ralat.length} ralat</p><ul class="small">${lap.ralat.slice(0, 30).map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    <div class="row"><button data-tutup class="pri">OK</button></div>`);
+}
 function dlgImportAgihan() {
   modal(`<h2>Import agihan guru</h2>
-    <p class="muted small" style="margin-top:0">Lajur (baris pertama tajuk): <b>Kelas, Subjek, Guru, Masa</b>, Pecahan, Bilik.<br>
+    <div class="item" style="margin-bottom:12px"><i class="fa-solid fa-cloud-arrow-down" style="color:var(--acc)"></i>
+      <div class="t"><b>Terus dari sistem Agihan Guru</b><span class="muted small">Data terkini dari <a href="agihan.html" target="_blank">agihan.html</a>. PSM→MZK, PJPK→PJ+PK, PI→PI-U, PI-J, PI-Q, TAS (guru PI + guru kolaborasi). Pecahan blok sedia ada dikekalkan.</span></div>
+      <button class="pri mini" id="bAgihan">Ambil</button></div>
+    <p class="muted small" style="margin-top:0">… atau dari fail / tampal. Lajur (baris pertama tajuk): <b>Kelas, Subjek, Guru, Masa</b>, Pecahan, Bilik.<br>
     Masa = bilangan masa ${P.tetapan.minitSlot} minit seminggu. Guru bersama dipisah dengan "/". Pecahan contoh <code>2+2+1</code> (pilihan).</p>
     <div class="row"><button class="mini" id="bTpl"><i class="fa-solid fa-download"></i> Templat CSV</button><input type="file" id="fCsv" accept=".csv,.tsv,.txt"></div>
     <label class="f" style="margin-top:10px">Tampal dari Google Sheet / CSV<textarea id="tCsv" placeholder="Kelas	Subjek	Guru	Masa	Pecahan	Bilik"></textarea></label>
@@ -388,6 +417,13 @@ function dlgImportAgihan() {
     <div class="row" style="margin-top:12px"><button class="pri" id="bCsv">Import</button><button data-tutup>Batal</button></div>`, b => {
     $("#bTpl", b).onclick = () => muatTurun("templat-agihan.csv", "Kelas,Subjek,Guru,Masa,Pecahan,Bilik\n4A,BM,Nama Guru,10,2+2+2+2+1+1,\n4A,PI-Q,Guru A / Guru B,3,2+1,\n", "text/csv");
     $("#fCsv", b).onchange = async e => { $("#tCsv", b).value = await e.target.files[0].text(); };
+    $("#bAgihan", b).onclick = async () => {
+      if (P.pelajaran.length && !confirm("Agihan sedia ada (" + P.pelajaran.length + " pelajaran) akan diganti dengan data Agihan Guru.\n\nKad yang sudah diletak dalam jadual akan dikosongkan — jana semula selepas ini. Boleh Undo.\n\nTeruskan?")) return;
+      const ganti = true;
+      const btn = $("#bAgihan", b); btn.disabled = true; btn.textContent = "Mengambil…";
+      try { await importDariAgihanGuru(ganti); }
+      catch (e) { toast("Gagal ambil Agihan Guru: " + e.message, 4500); btn.disabled = false; btn.textContent = "Ambil"; }
+    };
     $("#bCsv", b).onclick = async () => {
       try {
         let rows;

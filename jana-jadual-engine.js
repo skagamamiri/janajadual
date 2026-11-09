@@ -495,7 +495,71 @@
     return rows.slice(1).map(r => ({ kelas: r[ik], subjek: r[is], guru: ig >= 0 ? r[ig] : "", masa: im >= 0 ? r[im] : 0, pecahan: ip >= 0 ? r[ip] : "", bilik: ib >= 0 ? r[ib] : "" }));
   }
 
+  /* ---------- import daripada Agihan Guru (agihan.html / Supabase v_agihan) ----------
+     agihan: [{kelas:"1 AMANAH", tahun, subjek_kod, slot, guru, waktu}]
+     Pulangkan baris {kelas, subjek, guru, masa, pecahan, bilik} untuk importAgihan(),
+     mengikut amalan jadual sekolah:
+       PSM -> MZK;  PJPK -> PJ + PK (1/3);
+       PI (+PIQK, TSK) -> PI-Q (guru PI + guru kolaborasi), TAS (guru PI + guru kolaborasi),
+                          baki -> PI-U + PI-J (1).
+     P (pilihan): projek semasa — pecahan sedia ada dikekalkan jika jumlahnya sama. */
+  function kodKelasAgihan(nama) {
+    const m = String(nama || "").trim().match(/^(\d)\s*([A-Za-z])/);
+    return m ? m[1] + m[2].toUpperCase() : String(nama || "").trim();
+  }
+  const PETA_SUBJEK_AGIHAN = { PSM: "MZK" };
+  function barisDariAgihanGuru(agihan, P) {
+    const ikutKelas = {};
+    for (const a of agihan || []) {
+      const k = kodKelasAgihan(a.kelas);
+      const s = (ikutKelas[k] ||= {});
+      const o = (s[a.subjek_kod] ||= { guru: [], waktu: 0, slot: 0 });
+      o.waktu += Number(a.waktu) || 0; o.slot++;
+      if (a.guru && !o.guru.includes(a.guru)) o.guru.push(a.guru);
+    }
+    const pecLama = {};
+    if (P) {
+      const sk = Object.fromEntries((P.subjek || []).map(s => [s.id, String(s.kod).toUpperCase()]));
+      const kk = Object.fromEntries((P.kelas || []).map(k => [k.id, String(k.kod).toUpperCase()]));
+      for (const p of P.pelajaran || []) if (p.pecahan && p.pecahan.length) pecLama[kk[p.kelas] + "|" + sk[p.subjek]] = p.pecahan;
+    }
+    const out = [];
+    const tambah = (kelas, subjek, guru, masa) => {
+      masa = Math.round(masa);
+      if (!(masa > 0)) return;
+      const lama = pecLama[kelas.toUpperCase() + "|" + subjek.toUpperCase()];
+      const pec = lama && lama.reduce((x, y) => x + y, 0) === masa ? lama.join("+") : "";
+      out.push({ kelas, subjek, guru: guru.filter(Boolean).join(" / "), masa, pecahan: pec, bilik: "" });
+    };
+    const kelasUrut = Object.keys(ikutKelas).sort();
+    for (const k of kelasUrut) {
+      const S = ikutKelas[k];
+      for (const [kod, o] of Object.entries(S)) {
+        if (kod === "PIQK" || kod === "TSK") continue;
+        if (kod === "PJPK") {
+          const pk = Math.round(o.waktu / 3);
+          tambah(k, "PJ", o.guru, o.waktu - pk); tambah(k, "PK", o.guru, pk);
+        } else if (kod === "PI") {
+          const gPI = o.guru[0];
+          const q = S.PIQK, t = S.TSK;
+          const piq = q ? q.waktu : 0, tas = t ? t.waktu : 0;
+          if (q) tambah(k, "PI-Q", [...(q.guru), gPI].filter((g, i, a) => a.indexOf(g) === i), piq);
+          if (t) tambah(k, "TAS", [...(t.guru), gPI].filter((g, i, a) => a.indexOf(g) === i), tas);
+          const baki = o.waktu - piq - tas;
+          const j = baki >= 2 ? 1 : 0;
+          tambah(k, "PI-U", o.guru, baki - j); tambah(k, "PI-J", o.guru, j);
+        } else {
+          tambah(k, PETA_SUBJEK_AGIHAN[kod] || kod, o.guru, o.waktu);
+        }
+      }
+      // kolaborasi tanpa PI (jarang): masukkan terus
+      if (!S.PI) { if (S.PIQK) tambah(k, "PI-Q", S.PIQK.guru, S.PIQK.waktu); if (S.TSK) tambah(k, "TAS", S.TSK.guru, S.TSK.waktu); }
+    }
+    return out;
+  }
+
   const API = {
+    kodKelasAgihan, barisDariAgihanGuru,
     HARI_LALAI, toMin, toHHMM, uid, tetapanLalai, projekKosong, bilSlot, masaSlot, tahapKelas, availKelas,
     pecahanLalai, pecahanSah, selaraskanKad, binaKeadaan, pasang, cabut, strukturOK, pertembungan,
     Penjana, janaSync, kemaskan, jumlahSkor, skorLembut, semakSemua, importJadualHtml, eksportJadualHtml, parseCSV, barisDariCSV, importAgihan

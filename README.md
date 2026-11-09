@@ -28,7 +28,11 @@ Tanpa Supabase aplikasi tetap berfungsi (simpanan pelayar + muat turun fail proj
 ## Integrasi
 
 - **Import** jadual semasa dari `https://skagamamiri.github.io/tools/jadual.html` (`JADUAL_HTML_URL`).
-- **Import agihan** (Agihan Guru): CSV / tampal Google Sheet / URL Apps Script JSON.
+- **Import agihan → Terus dari sistem Agihan Guru**: butang *Ambil* membaca view `v_agihan` (Supabase *agihan-guru*)
+  dan menggantikan agihan projek. Pemetaan ikut amalan jadual sekolah: `1 AMANAH`→`1A`, `PSM`→`MZK`,
+  `PJPK`→`PJ`+`PK`, `PI`→`PI-U`+`PI-J`+`PI-Q`+`TAS` (PI-Q/TAS = guru PI + guru kolaborasi). Pecahan blok sedia ada dikekalkan,
+  guru kelas turut dikemas kini. Fungsi enjin: `barisDariAgihanGuru()`.
+- **Import agihan** (lain): CSV / tampal Google Sheet / URL Apps Script JSON.
   Lajur: `Kelas, Subjek, Guru, Masa, Pecahan, Bilik` (guru kolaborasi dipisah `/`, 1 masa = 30 minit).
 - **Terbit**: ke Supabase `tt_terbit` (format `{teachers, classes}` sama seperti `VERSION_DATA.data`),
   atau salin blok `VERSION_DATA` untuk ditampal ke `tools/jadual.html`.
