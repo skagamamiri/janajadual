@@ -382,12 +382,11 @@ function tunjukVersi() {
 /* --- import agihan --- */
 async function ambilAgihanGuru() {
   const h = { apikey: AGIHAN_KEY, Authorization: "Bearer " + AGIHAN_KEY };
-  const get = async p => { const r = await fetch(AGIHAN_URL + "/rest/v1/" + p, { headers: h }); if (!r.ok) throw new Error("Agihan Guru: HTTP " + r.status); return r.json(); };
-  const [agihan, kelas] = await Promise.all([
-    get("v_agihan?select=kelas,tahun,subjek_kod,slot,guru,waktu&limit=10000"),
-    get("classes?select=name,guru_kelas:teachers(name)")
-  ]);
-  return { agihan, guruKelas: kelas.map(k => ({ kod: E.kodKelasAgihan(k.name), guru: k.guru_kelas?.name || "" })) };
+  // Fungsi agihan_untuk_jana(): kelas, subjek, guru & waktu sahaja (sistem Agihan sendiri wajib log masuk)
+  const r = await fetch(AGIHAN_URL + "/rest/v1/rpc/agihan_untuk_jana", { method: "POST", headers: { ...h, "Content-Type": "application/json" }, body: "{}" });
+  if (!r.ok) throw new Error("Agihan Guru: HTTP " + r.status);
+  const d = await r.json();
+  return { agihan: d.agihan || [], guruKelas: (d.guruKelas || []).map(k => ({ kod: E.kodKelasAgihan(k.kelas), guru: k.guru || "" })) };
 }
 async function importDariAgihanGuru(ganti) {
   const d = await ambilAgihanGuru();

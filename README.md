@@ -28,7 +28,7 @@ Tanpa Supabase aplikasi tetap berfungsi (simpanan pelayar + muat turun fail proj
 ## Integrasi
 
 - **Import** jadual semasa dari `https://skagamamiri.github.io/tools/jadual.html` (`JADUAL_HTML_URL`).
-- **Import agihan → Terus dari sistem Agihan Guru**: butang *Ambil* membaca view `v_agihan` (Supabase *agihan-guru*)
+- **Import agihan → Terus dari sistem Agihan Guru**: butang *Ambil* memanggil `agihan_untuk_jana()` (Supabase *agihan-guru*)
   dan menggantikan agihan projek. Pemetaan ikut amalan jadual sekolah: `1 AMANAH`→`1A`, `PSM`→`MZK`,
   `PJPK`→`PJ`+`PK`, `PI`→`PI-U`+`PI-J`+`PI-Q`+`TAS` (PI-Q/TAS = guru PI + guru kolaborasi). Pecahan blok sedia ada dikekalkan,
   guru kelas turut dikemas kini. Fungsi enjin: `barisDariAgihanGuru()`.
@@ -49,17 +49,30 @@ Menggantikan Google Sheet **AGIHAN JADUAL**. Guna projek Supabase berasingan, **
 - **Rumusan Kelas**: guru setiap kelas, guru kelas, matriks semua kelas.
 - **Eksport & Cetak**: jam kredit, CSV aSc Timetables, cetakan.
 
-Semua orang boleh melihat. Hanya **editor** yang log masuk (email + kata laluan) boleh mengubah —
-dikuatkuasakan oleh RLS dalam database. Setiap perubahan direkod dalam `audit_log`.
+**Log masuk wajib** (Google DELIMa, atau email + kata laluan). Tiga peranan, dikuatkuasakan oleh RLS dalam database:
 
-Persediaan log masuk (sekali sahaja):
-1. Supabase → projek *agihan-guru* → **Authentication → Users → Add user** → email + kata laluan,
-   tandakan **Auto Confirm User**. (`sab2989@gmail.com` sudah didaftarkan sebagai editor.)
-2. (Disyorkan) **Authentication → Sign In / Providers → Email** → matikan *Allow new users to sign up*.
-3. Editor lain: cipta akaun di langkah 1, kemudian tambah email dalam agihan.html → ⚙ Tetapan → Editor.
+| Peranan | Boleh |
+|---|---|
+| **Admin** | Semua: agihan semua subjek, guru kelas, tambah/ubah guru, jam kredit, tetapan, urus pengguna, log |
+| **Ketua Panitia** | Ubah agihan bagi subjek panitia yang ditanda oleh admin; lihat yang lain |
+| **Guru** | Lihat sahaja (termasuk kad "Beban waktu anda" dan slip sendiri) |
 
-Untuk sistem lain (cth. Jana Jadual): view `v_agihan` memberi `kelas, tahun, tahap, subjek_kod, subjek, slot, guru, waktu`
-dan boleh dibaca dengan kunci anon.
+Admin urus pengguna di tab **Pengguna**: tukar peranan, tanda subjek panitia, pautkan kepada nama guru,
+nyahaktif, atau **Daftar pukal** (tampal senarai DELIMa: Nama ⇥ … ⇥ Email). Setiap perubahan direkod dalam log.
+
+### Persediaan log masuk Google (sekali sahaja, oleh admin)
+1. **Google Cloud Console** (console.cloud.google.com, guna akaun DELIMa admin/sekolah) → APIs & Services →
+   **OAuth consent screen**: User type *Internal* (hanya akaun moe-dl.edu.my) atau *External*, isi nama aplikasi.
+2. **Credentials → Create credentials → OAuth client ID** → *Web application*.
+   *Authorized redirect URIs*: `https://upeohhckgenamwggajip.supabase.co/auth/v1/callback`. Salin Client ID & Client secret.
+3. **Supabase** → projek *agihan-guru* → **Authentication → Sign In / Providers → Google** → Enable,
+   tampal Client ID & secret → Save.
+4. **Authentication → URL Configuration**: *Site URL* = `https://skagamamiri.github.io/janajadual/agihan.html`,
+   dan tambah URL yang sama dalam *Redirect URLs*.
+
+Sesiapa boleh log masuk dengan Google, tetapi hanya email dalam jadual `pengguna` (aktif) boleh melihat data.
+
+Untuk Jana Jadual: fungsi `agihan_untuk_jana()` memberi kelas, subjek, guru & waktu (boleh dipanggil dengan kunci anon).
 
 ## Peraturan penjana
 

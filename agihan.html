@@ -177,22 +177,39 @@ textarea.pre{width:100%;min-height:180px;font:12px/1.5 ui-monospace,Consolas,mon
   #printArea .pb{page-break-after:always}
   @page{size:A4 landscape;margin:10mm}
 }
-/* tambahan versi Supabase */
-.user{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:10px;height:38px;padding:0 6px 0 12px;font-size:13px;font-weight:600;color:#fff;max-width:260px}
+/* tambahan versi Supabase + peranan */
+.user{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:10px;height:38px;padding:0 6px 0 12px;font-size:13px;font-weight:600;color:#fff;max-width:300px}
 .user span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .user .ibtn{height:28px;background:rgba(255,255,255,.16)}
-.ro-note{background:var(--brand-soft);color:var(--brand);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.role{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;background:rgba(255,255,255,.2);white-space:nowrap}
+.ro-note{background:var(--brand-soft);color:var(--brand);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;margin-top:10px}
 select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:default;-webkit-appearance:none;appearance:none}
-.log{font-size:12.5px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.log{font-size:12.5px;max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .log div{padding:7px 10px;border-bottom:1px solid var(--line)}
 .log div:last-child{border-bottom:0}
 .log .w{color:var(--ink-3);font-size:11.5px}
-.ed-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
-.ed-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .modal .box.wide{max-width:620px}
-.sect{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
-.sect h4{margin:0 0 8px;font-size:14px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:6px}
+.chip.mine{border-color:var(--brand);color:var(--brand)}
+.chip .pen{font-size:11px}
+.gate{max-width:420px;margin:8vh auto 0;text-align:center}
+.gate .card{padding:28px 24px}
+.gate h2{font-size:20px;margin-bottom:6px}
+.gbtn{width:100%;justify-content:center;padding:11px 14px;font-size:15px;margin-top:16px}
+.gbtn svg{flex:none}
+details.alt{margin-top:16px;text-align:left}
+details.alt summary{cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:600;text-align:center}
+.me{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin-bottom:16px;border-left:4px solid var(--brand)}
+.me .v{font-size:28px;font-weight:800}
+.pg-tbl td{vertical-align:middle}
+.pg-tbl select,.pg-tbl input[type=text]{min-height:32px;padding:4px 8px;font-size:13px}
+.sj{display:flex;flex-wrap:wrap;gap:4px;max-width:340px}
+.sj label{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:2px 6px;cursor:pointer}
+.sj label.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
+.sj input{display:none}
+.pill-r{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.pill-r.admin{background:var(--bad-soft);color:var(--bad)} .pill-r.ketua_panitia{background:var(--warn-soft);color:var(--warn)} .pill-r.guru{background:var(--surface-2);color:var(--ink-2)}
+tr.off td{opacity:.5}
 </style>
 </head>
 <body>
@@ -208,26 +225,27 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
         <div class="sub" id="hdrSub">SK Agama (MIS) Miri</div>
       </div>
       <div class="sp"></div>
-      <button class="ibtn" id="btnReload" title="Muat semula data">
+      <button class="ibtn hide" id="btnReload" title="Muat semula data">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
         <span class="hide-sm">Muat semula</span>
       </button>
       <span id="authBox"></span>
-      <button class="ibtn" id="btnSettings" title="Tetapan">
+      <button class="ibtn hide" id="btnSettings" title="Tetapan">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       </button>
     </div>
-    <nav class="tabs" id="tabs">
+    <nav class="tabs hide" id="tabs">
       <button data-v="agihan" class="on">Agihan</button>
       <button data-v="beban">Beban Waktu Guru</button>
       <button data-v="kelas">Rumusan Kelas</button>
       <button data-v="eksport">Eksport &amp; Cetak</button>
+      <button data-v="pengguna" class="hide" id="tabPengguna">Pengguna</button>
     </nav>
   </div>
 </header>
 
 <main class="wrap" id="main">
-  <div class="center"><div><div class="spin"></div><div class="muted">Memuatkan data…</div></div></div>
+  <div class="center"><div><div class="spin"></div><div class="muted">Memuatkan…</div></div></div>
 </main>
 
 <div class="pbar" id="pbar">
@@ -236,18 +254,7 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
   <button class="btn pri" id="pSave">Simpan</button>
 </div>
 
-<div class="modal" id="mLogin"><div class="box">
-  <h3>Log masuk editor</h3>
-  <div class="muted small">Hanya akaun yang didaftarkan sebagai editor boleh mengubah agihan. Semua orang boleh melihat.</div>
-  <form id="loginForm">
-    <label class="field"><span>Email</span><input type="text" id="lgEmail" autocomplete="username" inputmode="email"></label>
-    <label class="field"><span>Kata laluan</span><input type="password" id="lgPass" autocomplete="current-password"></label>
-    <div class="err" id="lgErr"></div>
-    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-close>Batal</button><button type="submit" class="btn pri" id="lgOk">Log masuk</button></div>
-  </form>
-</div></div>
-
-<div class="modal" id="mSet"><div class="box wide">
+<div class="modal" id="mSet"><div class="box">
   <h3>Tetapan</h3>
   <div class="row">
     <label class="field grow"><span>Waktu minimum seminggu</span><input type="number" id="setMin" min="0"></label>
@@ -257,7 +264,7 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
   <label class="field"><span>Tema (peranti ini sahaja)</span>
     <select id="setTheme"><option value="">Ikut peranti</option><option value="light">Cerah</option><option value="dark">Gelap</option></select>
   </label>
-  <div id="setEditorOnly"></div>
+  <div class="faint small" id="setNote"></div>
   <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" data-close>Tutup</button><button class="btn pri" id="setOk">Simpan</button></div>
 </div></div>
 
@@ -269,6 +276,7 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
 
 <div class="modal" id="mAdd"><div class="box">
   <h3>Tambah Guru</h3>
+  <div class="muted small">Guru baharu untuk diagihkan (senarai guru mata pelajaran).</div>
   <label class="field"><span>Nama penuh guru</span><input type="text" id="addName"></label>
   <div class="err" id="addErr"></div>
   <div class="row" style="justify-content:flex-end"><button class="btn" data-close>Batal</button><button class="btn pri" id="addOk">Tambah</button></div>
@@ -282,6 +290,15 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
   <div class="row" style="justify-content:flex-end"><button class="btn" data-close>Batal</button><button class="btn pri" id="tOk">Simpan</button></div>
 </div></div>
 
+<div class="modal" id="mBulk"><div class="box wide">
+  <h3>Daftar pengguna secara pukal</h3>
+  <div class="muted small">Tampal dari senarai DELIMa / Google Sheet: satu baris setiap pengguna, lajur dipisah Tab. Lajur yang mengandungi <b>@</b> dikira sebagai email; lajur pertama sebagai nama. Baris tajuk diabaikan. Email yang sudah berdaftar tidak diubah.</div>
+  <textarea class="pre" id="bulkTxt" style="margin-top:10px" placeholder="ABDULLAH BIN MOHAMMAD	KPM-Guru	g-29295274@moe-dl.edu.my"></textarea>
+  <label class="field"><span>Peranan</span><select id="bulkRole"><option value="guru">Guru</option><option value="ketua_panitia">Ketua Panitia</option><option value="admin">Admin</option></select></label>
+  <div class="err" id="bulkErr"></div>
+  <div class="row" style="justify-content:flex-end"><button class="btn" data-close>Batal</button><button class="btn pri" id="bulkOk">Daftar</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 <div id="printArea"></div>
 
@@ -291,6 +308,7 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
 const SUPABASE_URL = 'https://upeohhckgenamwggajip.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZW9oaGNrZ2VuYW13Z2dhamlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjg0ODIsImV4cCI6MjEwOTgwNDQ4Mn0.4aHGDElXA7FtkdFTebMapeeUe8AOG-OuktF9UAp6mbg';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const PERANAN = { admin: 'Admin', ketua_panitia: 'Ketua Panitia', guru: 'Guru' };
 
 /* ============ UTIL ============ */
 const $ = (s, el = document) => el.querySelector(s);
@@ -315,15 +333,16 @@ const theme = store.get('agihan.theme', '');
 if (theme) document.documentElement.setAttribute('data-theme', theme);
 
 /* ============ STATE ============ */
-let D = null;               // data
-let S = {};                 // subjek ikut kod
-let T = {};                 // guru ikut id
-let byId = {};              // agihan ikut id
-let IDX = {};               // IDX[kod][kelas] = [agihan]
-let pending = new Map();    // id agihan -> id guru (null = kosong)
-let gkPending = new Map();  // kelas -> id guru
-let user = null, isEditor = false;
+let D = null, S = {}, T = {}, byId = {}, IDX = {};
+let pending = new Map(), gkPending = new Map();
+let user = null, me = null;       // me = rekod pengguna {email, nama, peranan, subjek, teacher_id}
 let view = 'agihan', curSub = null, curCls = null, bebanOpen = new Set(), bebanSort = 'name', bebanFilter = 'all', bebanQ = '';
+let PG = null, pgQ = '', pgRole = 'all';
+
+const isAdmin = () => me?.peranan === 'admin';
+const isKP = () => me?.peranan === 'ketua_panitia';
+const canEditSub = code => isAdmin() || (isKP() && (me.subjek || []).includes(code));
+const canEditAny = () => isAdmin() || (isKP() && (me.subjek || []).length > 0);
 
 const tahapOf = cls => (parseInt(cls, 10) <= 3 ? 1 : 2);
 const per = (s, cls) => s.perRow ? s.perRow : (tahapOf(cls) === 1 ? (s.t1 || 0) : (s.t2 || 0));
@@ -335,10 +354,84 @@ const lvl = n => n > cfg.max ? 'over' : n < cfg.min ? 'under' : 'ok';
 const shortCls = c => { const p = c.split(' '); return p[0] + (p[1] ? p[1][0] : ''); };
 const dirty = () => pending.size + gkPending.size > 0;
 const toId = v => (v === '' || v == null) ? null : Number(v);
-
-/* ============ LOAD ============ */
 async function q(p) { const { data, error } = await p; if (error) throw error; return data; }
 
+/* ============ LOG MASUK ============ */
+const G_ICON = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+
+function showChrome(on) {
+  ['#tabs', '#btnReload', '#btnSettings'].forEach(s => $(s).classList.toggle('hide', !on));
+  $('#tabPengguna').classList.toggle('hide', !(on && isAdmin()));
+}
+function renderGate() {
+  showChrome(false); D = null;
+  $('#pbar').classList.remove('show');
+  $('#main').innerHTML = `<div class="gate"><div class="card">
+    <h2>Log masuk</h2>
+    <div class="muted small">Gunakan akaun DELIMa (@moe-dl.edu.my) yang didaftarkan oleh admin sekolah.</div>
+    <button class="btn pri gbtn" id="gLogin" style="background:var(--surface);color:var(--ink);border-color:var(--line)">${G_ICON} Log masuk dengan Google</button>
+    <details class="alt"><summary>Guna email &amp; kata laluan</summary>
+      <form id="pwForm">
+        <label class="field"><span>Email</span><input type="text" id="lgEmail" autocomplete="username" inputmode="email"></label>
+        <label class="field"><span>Kata laluan</span><input type="password" id="lgPass" autocomplete="current-password"></label>
+        <div class="err" id="lgErr"></div>
+        <button type="submit" class="btn pri" id="lgOk" style="width:100%;justify-content:center">Log masuk</button>
+      </form>
+    </details>
+  </div></div>`;
+  $('#gLogin').onclick = async () => {
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
+    if (error) msg('Log masuk Google gagal', `<p>${esc(error.message)}</p><p class="muted">Jika mesej menyebut "provider is not enabled", admin perlu menghidupkan Google dalam Supabase (lihat README).</p>`);
+  };
+  $('#pwForm').onsubmit = async e => {
+    e.preventDefault();
+    const btn = $('#lgOk'); btn.disabled = true; $('#lgErr').textContent = '';
+    const { error } = await sb.auth.signInWithPassword({ email: $('#lgEmail').value.trim(), password: $('#lgPass').value });
+    btn.disabled = false;
+    if (error) $('#lgErr').textContent = /invalid/i.test(error.message) ? 'Email atau kata laluan salah.' : error.message;
+  };
+}
+function renderNotRegistered() {
+  showChrome(false); D = null;
+  $('#main').innerHTML = `<div class="gate"><div class="card">
+    <h2>Akaun belum didaftarkan</h2>
+    <p class="muted"><b>${esc(user.email)}</b> tiada dalam senarai pengguna sistem ini${me && !me.aktif ? ' (dinyahaktifkan)' : ''}.</p>
+    <p class="muted small">Minta admin sekolah mendaftarkan email ini, atau log keluar dan guna akaun DELIMa yang lain.</p>
+    <button class="btn pri gbtn" onclick="logout()">Log keluar</button>
+  </div></div>`;
+}
+function renderAuth() {
+  const box = $('#authBox');
+  if (!user) { box.innerHTML = ''; return; }
+  box.innerHTML = `<span class="user" title="${esc(user.email)}"><span class="hide-sm">${esc(me?.nama || user.email)}</span>${me ? `<span class="role">${PERANAN[me.peranan]}${isKP() && me.subjek.length ? ' ' + esc(me.subjek.join(', ')) : ''}</span>` : ''}<button class="ibtn" onclick="logout()" title="Log keluar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button></span>`;
+}
+async function logout() {
+  if (dirty() && !confirm('Perubahan yang belum disimpan akan hilang. Log keluar?')) return;
+  pending.clear(); gkPending.clear();
+  await sb.auth.signOut();
+}
+let authSeq = 0;
+async function onSession(session) {
+  const seq = ++authSeq;
+  const prevEmail = user?.email;
+  user = session?.user || null;
+  if (!user) { me = null; renderAuth(); return renderGate(); }
+  if (prevEmail === user.email && me && D) return; // token disegarkan — tiada perubahan
+  try {
+    const r = await q(sb.from('pengguna').select('email,nama,peranan,subjek,teacher_id,aktif').eq('email', (user.email || '').toLowerCase()).maybeSingle());
+    if (seq !== authSeq) return;
+    me = r && r.aktif ? { ...r, subjek: r.subjek || [] } : null;
+  } catch (e) { me = null; }
+  renderAuth();
+  if (!me) return renderNotRegistered();
+  showChrome(true);
+  if (view === 'pengguna' && !isAdmin()) view = 'agihan';
+  if (isKP() && me.subjek.length && !curSub) curSub = me.subjek[0];
+  load();
+}
+sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => onSession(session), 0); });
+
+/* ============ LOAD ============ */
 async function load() {
   if (!D) $('#main').innerHTML = '<div class="center"><div><div class="spin"></div><div class="muted">Memuatkan data…</div></div></div>';
   try {
@@ -374,47 +467,12 @@ function init(r) {
   D.allocations.forEach(a => { byId[a.id] = a; ((IDX[a.s] ||= {})[a.cls] ||= []).push(a); });
   Object.values(IDX).forEach(m => Object.values(m).forEach(arr => arr.sort((x, y) => x.slot - y.slot)));
   pending.clear(); gkPending.clear();
-  if (!curSub || !S[curSub]) curSub = D.subjects[0]?.code;
+  if (!curSub || !S[curSub]) curSub = (isKP() && me.subjek.find(c => S[c])) || D.subjects[0]?.code;
   if (!curCls || !D.classes.includes(curCls)) curCls = D.classes[0];
+  if (me?.teacher_id && bebanOpen.size === 0) bebanOpen.add(me.teacher_id);
   $('#hdrSub').textContent = `${settings.sekolah || 'SK Agama (MIS) Miri'} · Sesi ${settings.sesi || ''}${settings.pk_kurikulum ? ' · PK Kurikulum: ' + settings.pk_kurikulum : ''}`;
   render();
 }
-
-/* ============ AUTH ============ */
-async function refreshAuth(session) {
-  user = session?.user || null;
-  isEditor = false;
-  if (user) {
-    const { data } = await sb.from('editors').select('email').eq('email', (user.email || '').toLowerCase()).maybeSingle();
-    isEditor = !!data;
-  }
-  renderAuth();
-  if (D) render();
-}
-function renderAuth() {
-  const box = $('#authBox');
-  if (!user) {
-    box.innerHTML = `<button class="ibtn" id="btnLogin"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg><span class="hide-sm">Log masuk</span></button>`;
-    $('#btnLogin').onclick = () => { $('#lgErr').textContent = ''; openModal('#mLogin'); setTimeout(() => $('#lgEmail').focus(), 50); };
-  } else {
-    box.innerHTML = `<span class="user" title="${esc(user.email)}"><span class="hide-sm">${esc(user.email)}</span>${isEditor ? '' : '<span class="hide-sm" style="opacity:.75">(lihat sahaja)</span>'}<button class="ibtn" id="btnLogout" title="Log keluar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button></span>`;
-    $('#btnLogout').onclick = async () => {
-      if (dirty() && !confirm('Perubahan yang belum disimpan akan hilang. Log keluar?')) return;
-      pending.clear(); gkPending.clear();
-      await sb.auth.signOut();
-    };
-  }
-}
-$('#loginForm').onsubmit = async e => {
-  e.preventDefault();
-  const btn = $('#lgOk'); btn.disabled = true; $('#lgErr').textContent = '';
-  const { error } = await sb.auth.signInWithPassword({ email: $('#lgEmail').value.trim(), password: $('#lgPass').value });
-  btn.disabled = false;
-  if (error) { $('#lgErr').textContent = /invalid/i.test(error.message) ? 'Email atau kata laluan salah.' : error.message; return; }
-  $('#lgPass').value = ''; closeModal('#mLogin');
-  setTimeout(() => toast(isEditor ? 'Log masuk berjaya — anda boleh mengedit' : 'Log masuk berjaya, tetapi akaun ini belum didaftarkan sebagai editor'), 300);
-};
-sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => refreshAuth(session), 0); });
 
 /* ============ PENGIRAAN ============ */
 function loads() {
@@ -438,14 +496,16 @@ function emptyCount(code) {
 
 /* ============ RENDER ============ */
 function render() {
-  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   if (!D) return;
-  ({ agihan: renderAgihan, beban: renderBeban, kelas: renderKelas, eksport: renderEksport })[view]();
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  ({ agihan: renderAgihan, beban: renderBeban, kelas: renderKelas, eksport: renderEksport, pengguna: renderPengguna })[view]();
   updatePbar();
 }
-function roNote() {
-  if (isEditor) return '';
-  return `<div class="ro-note">Mod lihat sahaja. ${user ? 'Akaun ini belum didaftarkan sebagai editor.' : '<button class="btn" style="padding:4px 10px" onclick="$(\'#btnLogin\').click()">Log masuk</button> untuk mengedit.'}</div>`;
+function roNote(code) {
+  if (canEditSub(code)) return '';
+  if (isKP()) return `<div class="ro-note">Anda Ketua Panitia ${esc((me.subjek || []).join(', ') || '(belum ditetapkan)')}. Subjek ini hanya boleh dilihat.</div>`;
+  if (!isAdmin()) return `<div class="ro-note">Paparan sahaja. Perubahan agihan dibuat oleh Ketua Panitia dan admin.</div>`;
+  return '';
 }
 function teacherOptions(cur) {
   let h = '<option value="">— Kosong —</option>';
@@ -459,10 +519,10 @@ function teacherOptions(cur) {
 function renderAgihan() {
   const s = S[curSub];
   const L = loads();
-  const dis = isEditor ? '' : ' disabled';
+  const dis = canEditSub(curSub) ? '' : ' disabled';
   const chips = D.subjects.map(x => {
-    const e = emptyCount(x.code);
-    return `<button class="chip${x.code === curSub ? ' on' : ''}" data-sub="${x.code}" title="${esc(x.title)}">${esc(x.code)}${e ? '<span class="dot" title="' + e + ' slot kosong"></span>' : ''}</button>`;
+    const e = emptyCount(x.code); const mine = isKP() && canEditSub(x.code);
+    return `<button class="chip${x.code === curSub ? ' on' : ''}${mine ? ' mine' : ''}" data-sub="${x.code}" title="${esc(x.title)}${mine ? ' — panitia anda' : ''}">${mine ? '<span class="pen">✎</span>' : ''}${esc(x.code)}${e ? '<span class="dot" title="' + e + ' slot kosong"></span>' : ''}</button>`;
   }).join('');
 
   const cols = [1, 2].map(tp => {
@@ -489,11 +549,11 @@ function renderAgihan() {
   $('#main').innerHTML = `
     <div class="card pad">
       <div class="row" style="justify-content:space-between;margin-bottom:10px">
-        <div><h2>${esc(s.title)}</h2><div class="muted small">Pilih guru bagi setiap kelas. Nombor di sebelah = jumlah waktu guru itu seminggu (semua subjek).</div></div>
+        <div><h2>${esc(s.title)}</h2><div class="muted small">Nombor di sebelah nama = jumlah waktu guru itu seminggu (semua subjek).</div></div>
         <div class="legend"><span><i style="background:var(--warn)"></i>&lt; ${cfg.min}</span><span><i style="background:var(--ok)"></i>${cfg.min}–${cfg.max}</span><span><i style="background:var(--bad)"></i>&gt; ${cfg.max}</span></div>
       </div>
       <div class="chips" id="subChips">${chips}</div>
-      ${roNote()}
+      ${roNote(curSub)}
     </div>
     <div class="agihan-grid">
       <div class="tahap-wrap">${cols}</div>
@@ -537,7 +597,7 @@ function renderSide(L) {
   const empty = emptyCount(curSub);
   $('#side').innerHTML = `<h3>Guru ${esc(s.code)} (${list.length})</h3>
     ${empty ? `<div class="note" style="margin-bottom:8px;background:var(--warn-soft);color:var(--warn)">${empty} slot belum diisi</div>` : ''}
-    ${list.map(([t, o]) => `<div class="tl"><span class="n" title="${esc(nm(t))}">${esc(nm(t))}</span>
+    ${list.map(([t, o]) => `<div class="tl"><span class="n" title="${esc(nm(t))}"${+t === me?.teacher_id ? ' style="font-weight:800"' : ''}>${esc(nm(t))}</span>
       <span class="faint small">${o.cls.size} kls · ${o.p}w</span>
       <span class="ld ${lvl(L[t]?.total || 0)}">${L[t]?.total || 0}</span></div>`).join('') || '<div class="muted small">Belum ada guru.</div>'}
     <div style="margin-top:12px"><button class="btn" style="width:100%;justify-content:center" onclick="printSubject('${s.code}')">Cetak agihan ${esc(s.code)}</button></div>`;
@@ -551,6 +611,7 @@ function renderBeban() {
   const active = rows.filter(r => r.total > 0);
   const nUnder = active.filter(r => r.total < cfg.min).length, nOver = rows.filter(r => r.total > cfg.max).length;
   const zero = rows.filter(r => r.total === 0).length;
+  const mine = me?.teacher_id && L[me.teacher_id] ? L[me.teacher_id] : null;
 
   if (bebanQ) rows = rows.filter(r => r.name.toLowerCase().includes(bebanQ.toLowerCase()));
   if (bebanFilter !== 'all') rows = rows.filter(r => bebanFilter === 'zero' ? r.total === 0 : r.total > 0 && lvl(r.total) === bebanFilter);
@@ -565,17 +626,21 @@ function renderBeban() {
         </tbody></table></div>
         <div class="row" style="margin-top:8px">
           <button class="btn" onclick="event.stopPropagation();printSlip(${r.id})">Cetak slip guru</button>
-          ${isEditor ? `<button class="btn" onclick="event.stopPropagation();editTeacher(${r.id})">Tukar nama / status</button>` : ''}
+          ${isAdmin() ? `<button class="btn" onclick="event.stopPropagation();editTeacher(${r.id})">Tukar nama / status</button>` : ''}
         </div>
       </td></tr>` : '';
     return `<tr class="clk" data-t="${r.id}"><td class="faint">${r.bil ?? ''}</td>
-      <td><b>${esc(r.name)}</b>${r.aktif ? '' : ' <span class="tag">tidak aktif</span>'}<div>${tags}</div></td>
+      <td><b>${esc(r.name)}</b>${r.id === me?.teacher_id ? ' <span class="tag" style="background:var(--brand-soft);color:var(--brand)">anda</span>' : ''}${r.aktif ? '' : ' <span class="tag">tidak aktif</span>'}<div>${tags}</div></td>
       <td class="num"><b>${r.total}</b></td>
       <td style="width:28%"><div class="bar"><i class="${r.total ? lvl(r.total) : ''}" style="width:${Math.min(100, r.total / mx * 100)}%"></i></div></td></tr>${det}`;
   }).join('');
 
   $('#main').innerHTML = `
-    <div class="stats">
+    ${mine ? `<div class="card pad me"><div><div class="k small faint" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Beban waktu anda</div>
+      <div class="v">${mine.total} <span class="small muted" style="font-weight:600">waktu seminggu</span></div>
+      <div>${groupItems(mine.items).map(x => `<span class="tag">${esc(x.s)}: ${x.cls.map(shortCls).join(', ')} <b>${x.p}</b></span>`).join('')}</div></div>
+      <button class="btn" onclick="printSlip(${me.teacher_id})">Cetak slip saya</button></div>` : ''}
+    <div class="stats" style="${mine ? 'margin-top:0' : ''}">
       <div class="card stat"><div class="k">Guru</div><div class="v">${D.teachers.filter(t => t.aktif).length}</div></div>
       <div class="card stat"><div class="k">Jumlah waktu</div><div class="v">${total}</div></div>
       <div class="card stat"><div class="k">Kurang ${cfg.min}</div><div class="v" style="color:var(--warn)">${nUnder}</div></div>
@@ -588,7 +653,7 @@ function renderBeban() {
           <option value="all">Semua</option><option value="under">Kurang dari ${cfg.min}</option><option value="ok">Normal</option><option value="over">Lebih dari ${cfg.max}</option><option value="zero">Tiada waktu (${zero})</option>
         </select>
         <select id="bS"><option value="name">Susun: Nama</option><option value="total">Susun: Waktu ↓</option><option value="bil">Susun: Bil</option></select>
-        ${isEditor ? `<button class="btn" id="bAdd">+ Guru</button>` : ''}
+        ${isAdmin() ? `<button class="btn" id="bAdd">+ Guru</button>` : ''}
         <button class="btn" onclick="printBeban()">Cetak</button>
       </div>
       <div class="tbl-wrap"><table class="t">
@@ -597,7 +662,7 @@ function renderBeban() {
       </table></div>
     </div>`;
   $('#bF').value = bebanFilter; $('#bS').value = bebanSort;
-  $('#bQ').oninput = e => { bebanQ = e.target.value; const p = e.target.selectionStart; renderBeban(); const q = $('#bQ'); q.focus(); q.setSelectionRange(p, p); };
+  $('#bQ').oninput = e => { bebanQ = e.target.value; const p = e.target.selectionStart; renderBeban(); const qq = $('#bQ'); qq.focus(); qq.setSelectionRange(p, p); };
   $('#bF').onchange = e => { bebanFilter = e.target.value; renderBeban(); };
   $('#bS').onchange = e => { bebanSort = e.target.value; renderBeban(); };
   if ($('#bAdd')) $('#bAdd').onclick = () => { $('#addName').value = ''; $('#addErr').textContent = ''; openModal('#mAdd'); setTimeout(() => $('#addName').focus(), 50); };
@@ -639,7 +704,7 @@ function renderKelas() {
       <div class="row" style="justify-content:space-between;margin-bottom:12px">
         <div><h2>${esc(curCls)}</h2><div class="muted small">Tahap ${tahapOf(curCls)} · ${tot} waktu seminggu (subjek yang diagih)</div></div>
         ${g ? `<label class="row small" style="gap:8px"><b>Guru Kelas</b>
-          <select id="gkSel" class="${gkPending.has(g.cls) ? 'chg' : ''}" style="max-width:280px"${isEditor ? '' : ' disabled'}>${teacherOptions(gkEff(g))}</select></label>` : ''}
+          <select id="gkSel" class="${gkPending.has(g.cls) ? 'chg' : ''}" style="max-width:280px"${isAdmin() ? '' : ' disabled'}>${teacherOptions(gkEff(g))}</select></label>` : ''}
       </div>
       <div class="cls-grid">${cards}</div>
     </div>
@@ -728,15 +793,16 @@ function toDelim(rows, sep) {
 function renderEksport() {
   const cfgRows = ascConfig();
   const { out, skipped } = ascRows();
+  const ed = isAdmin();
   const jk = D.subjects.filter(s => !s.perRow).map(s => `<tr><td><b>${esc(s.code)}</b></td><td>${esc(s.name)}</td>
-    <td class="num">${isEditor ? `<input type="number" min="0" step="0.5" style="width:70px" data-jk="${s.code}" data-k="t1" value="${s.t1}">` : s.t1}</td>
-    <td class="num">${isEditor ? `<input type="number" min="0" step="0.5" style="width:70px" data-jk="${s.code}" data-k="t2" value="${s.t2}">` : s.t2}</td></tr>`).join('');
+    <td class="num">${ed ? `<input type="number" min="0" step="0.5" style="width:70px" data-jk="${s.code}" data-k="t1" value="${s.t1}">` : s.t1}</td>
+    <td class="num">${ed ? `<input type="number" min="0" step="0.5" style="width:70px" data-jk="${s.code}" data-k="t2" value="${s.t2}">` : s.t2}</td></tr>`).join('');
   $('#main').innerHTML = `
     <div class="card pad">
       <h2>Jam kredit (waktu seminggu bagi setiap kelas)</h2>
-      <div class="muted small">Asas pengiraan beban guru. Kolaborasi PI (Quran) dan Tasmik dikira ${S.PIQK?.perRow || 1} waktu bagi setiap slot.</div>
+      <div class="muted small">Asas pengiraan beban guru. Kolaborasi PI (Quran) dan Tasmik dikira ${S.PIQK?.perRow || 1} waktu bagi setiap slot.${ed ? '' : ' Hanya admin boleh mengubah.'}</div>
       <div class="tbl-wrap" style="margin-top:12px"><table class="t"><thead><tr><th>Kod</th><th>Subjek</th><th class="num">Tahap 1</th><th class="num">Tahap 2</th></tr></thead><tbody>${jk}</tbody></table></div>
-      ${isEditor ? '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" id="jkSave">Simpan jam kredit</button></div>' : ''}
+      ${ed ? '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" id="jkSave">Simpan jam kredit</button></div>' : ''}
     </div>
     <div class="card pad" style="margin-top:16px">
       <h2>Eksport untuk aSc Timetables</h2>
@@ -796,6 +862,136 @@ async function saveJamKredit() {
   } catch (e) { msg('Gagal menyimpan', esc(fail(e))); }
 }
 
+/* ---------- PENGGUNA (admin) ---------- */
+async function renderPengguna(force) {
+  if (!isAdmin()) { view = 'agihan'; return render(); }
+  if (!PG || force) {
+    $('#main').innerHTML = '<div class="center"><div><div class="spin"></div><div class="muted">Memuatkan pengguna…</div></div></div>';
+    try {
+      const [users, logs] = await Promise.all([
+        q(sb.from('pengguna').select('email,nama,peranan,subjek,teacher_id,aktif').order('nama')),
+        q(sb.from('audit_log').select('at,by_email,label,old_val,new_val').order('at', { ascending: false }).limit(100))
+      ]);
+      PG = { users, logs };
+    } catch (e) { $('#main').innerHTML = `<div class="card pad err">${esc(fail(e))}</div>`; return; }
+    if (view !== 'pengguna') return;
+  }
+  const cnt = r => PG.users.filter(u => u.peranan === r).length;
+  let list = PG.users;
+  if (pgRole !== 'all') list = list.filter(u => u.peranan === pgRole);
+  if (pgQ) { const s = pgQ.toLowerCase(); list = list.filter(u => (u.nama || '').toLowerCase().includes(s) || u.email.includes(s)); }
+  const tOpts = cur => `<option value="">—</option>` + D.teachersSorted.map(t => `<option value="${t.id}"${t.id === cur ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
+  const sjBox = u => u.peranan !== 'ketua_panitia' ? '<span class="faint small">—</span>' :
+    `<div class="sj">${D.subjects.map(s => `<label class="${u.subjek.includes(s.code) ? 'on' : ''}"><input type="checkbox" data-sj="${esc(u.email)}" value="${s.code}" ${u.subjek.includes(s.code) ? 'checked' : ''}>${esc(s.code)}</label>`).join('')}</div>`;
+  const rows = list.map(u => `<tr class="${u.aktif ? '' : 'off'}">
+      <td><b>${esc(u.nama || '')}</b><div class="faint small">${esc(u.email)}</div></td>
+      <td><select data-role="${esc(u.email)}">${Object.entries(PERANAN).map(([k, v]) => `<option value="${k}"${u.peranan === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td>${sjBox(u)}</td>
+      <td><select data-link="${esc(u.email)}" style="max-width:220px">${tOpts(u.teacher_id)}</select></td>
+      <td style="text-align:center"><input type="checkbox" data-aktif="${esc(u.email)}" ${u.aktif ? 'checked' : ''} title="Aktif"></td>
+      <td>${u.email === (user.email || '').toLowerCase() ? '<span class="faint small">anda</span>' : `<button class="btn ghost" data-del="${esc(u.email)}" title="Buang">✕</button>`}</td>
+    </tr>`).join('');
+  const linked = new Set(PG.users.map(u => u.teacher_id).filter(Boolean));
+  const noAcc = D.teachers.filter(t => t.aktif && !linked.has(t.id));
+
+  $('#main').innerHTML = `
+    <div class="stats">
+      <div class="card stat"><div class="k">Pengguna</div><div class="v">${PG.users.length}</div></div>
+      <div class="card stat"><div class="k">Admin</div><div class="v" style="color:var(--bad)">${cnt('admin')}</div></div>
+      <div class="card stat"><div class="k">Ketua Panitia</div><div class="v" style="color:var(--warn)">${cnt('ketua_panitia')}</div></div>
+      <div class="card stat"><div class="k">Guru</div><div class="v">${cnt('guru')}</div></div>
+    </div>
+    <div class="card">
+      <div class="pad row" style="border-bottom:1px solid var(--line)">
+        <input type="text" id="pgQ" placeholder="Cari nama / email…" value="${esc(pgQ)}" class="grow" style="min-width:180px">
+        <select id="pgR"><option value="all">Semua peranan</option>${Object.entries(PERANAN).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+        <button class="btn pri" id="pgAdd">+ Pengguna</button>
+        <button class="btn" id="pgBulk">Daftar pukal</button>
+      </div>
+      <div class="pad small muted" style="border-bottom:1px solid var(--line)">
+        <span class="pill-r admin">Admin</span> urus semua termasuk pengguna &amp; jam kredit ·
+        <span class="pill-r ketua_panitia">Ketua Panitia</span> ubah agihan subjek panitia yang ditanda ·
+        <span class="pill-r guru">Guru</span> lihat sahaja. Perubahan di sini disimpan serta-merta.
+      </div>
+      <div id="pgNew" class="pad hide" style="border-bottom:1px solid var(--line)">
+        <div class="row">
+          <input type="text" id="nEmail" placeholder="email@moe-dl.edu.my" class="grow">
+          <input type="text" id="nNama" placeholder="Nama" class="grow">
+          <select id="nRole">${Object.entries(PERANAN).map(([k, v]) => `<option value="${k}"${k === 'guru' ? ' selected' : ''}>${v}</option>`).join('')}</select>
+          <button class="btn pri" id="nOk">Simpan</button>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="t pg-tbl">
+        <thead><tr><th>Nama / Email</th><th>Peranan</th><th>Subjek panitia</th><th>Guru dalam agihan</th><th>Aktif</th><th></th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6" class="muted">Tiada padanan.</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    ${noAcc.length ? `<div class="card pad" style="margin-top:16px"><h2>Guru agihan tanpa akaun</h2><div class="muted small">Guru ini ada dalam agihan tetapi belum dipautkan kepada mana-mana pengguna: ${noAcc.map(t => esc(t.name)).join(', ')}.</div></div>` : ''}
+    <div class="card pad" style="margin-top:16px"><h2>Log perubahan</h2>
+      <div class="log" style="margin-top:10px">${PG.logs.map(l => `<div>${esc(l.label)}: <b>${esc(l.old_val || '–')}</b> → <b>${esc(l.new_val || '–')}</b><div class="w">${esc(new Date(l.at).toLocaleString('ms-MY'))} · ${esc(l.by_email || 'sistem')}</div></div>`).join('') || '<div class="muted">Belum ada perubahan.</div>'}</div>
+    </div>`;
+
+  $('#pgR').value = pgRole;
+  $('#pgQ').oninput = e => { pgQ = e.target.value; const p = e.target.selectionStart; renderPengguna(); const x = $('#pgQ'); x.focus(); x.setSelectionRange(p, p); };
+  $('#pgR').onchange = e => { pgRole = e.target.value; renderPengguna(); };
+  $('#pgAdd').onclick = () => { $('#pgNew').classList.toggle('hide'); $('#nEmail').focus(); };
+  $('#pgBulk').onclick = () => { $('#bulkTxt').value = ''; $('#bulkErr').textContent = ''; openModal('#mBulk'); };
+  $('#nOk').onclick = async () => {
+    const email = $('#nEmail').value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Email tidak sah');
+    const t = matchTeacher($('#nNama').value);
+    await pgSave(() => sb.from('pengguna').insert({ email, nama: $('#nNama').value.trim() || null, peranan: $('#nRole').value, teacher_id: t }), 'Pengguna ditambah', true);
+  };
+  $$('[data-role]').forEach(s => s.onchange = () => pgUpdate(s.dataset.role, { peranan: s.value, ...(s.value !== 'ketua_panitia' ? { subjek: [] } : {}) }));
+  $$('[data-link]').forEach(s => s.onchange = () => pgUpdate(s.dataset.link, { teacher_id: toId(s.value) }));
+  $$('[data-aktif]').forEach(c => c.onchange = () => pgUpdate(c.dataset.aktif, { aktif: c.checked }));
+  $$('[data-sj]').forEach(c => c.onchange = () => {
+    const u = PG.users.find(x => x.email === c.dataset.sj);
+    const sj = new Set(u.subjek); c.checked ? sj.add(c.value) : sj.delete(c.value);
+    pgUpdate(u.email, { subjek: D.subjects.map(s => s.code).filter(x => sj.has(x)) });
+  });
+  $$('[data-del]').forEach(b => b.onclick = () => {
+    if (!confirm('Buang ' + b.dataset.del + ' daripada sistem?')) return;
+    pgSave(() => sb.from('pengguna').delete().eq('email', b.dataset.del), 'Pengguna dibuang', true);
+  });
+}
+async function pgSave(fn, ok, reload) {
+  try { await q(fn()); toast(ok); } catch (e) { msg('Gagal', esc(/duplicate/i.test(fail(e)) ? 'Email sudah berdaftar' : fail(e))); }
+  await renderPengguna(reload);
+}
+async function pgUpdate(email, patch) {
+  try {
+    const r = await q(sb.from('pengguna').update(patch).eq('email', email).select('email,nama,peranan,subjek,teacher_id,aktif'));
+    if (!r.length) throw new Error('Tiada kebenaran');
+    const i = PG.users.findIndex(u => u.email === email); PG.users[i] = { ...r[0], subjek: r[0].subjek || [] };
+    toast('Disimpan');
+  } catch (e) { msg('Gagal menyimpan', esc(fail(e))); }
+  renderPengguna(true);
+}
+const normNama = s => String(s || '').toUpperCase().replace(/\./g, ' ').replace(/\bAK\b/g, 'ANAK').replace(/\bDYGKU\b/g, 'DAYANGKU').replace(/\bDYG\b/g, 'DAYANG').replace(/\bAWGKU\b/g, 'AWANGKU')
+  .replace(/MOHAMMAD|MUHAMMAD/g, 'MOHAMAD').replace(/MARDHIAH/g, 'MARDIAH').split(/\s+/).filter(w => w && !['BIN', 'BINTI', 'ANAK'].includes(w));
+function matchTeacher(nama) {
+  const a = new Set(normNama(nama)); if (!a.size) return null;
+  let best = null, bs = 0;
+  for (const t of D.teachers) { const b = new Set(normNama(t.name)); const inter = [...a].filter(x => b.has(x)).length; const s = inter / Math.max(a.size, b.size); if (s > bs) { bs = s; best = t.id; } }
+  return bs >= 0.6 ? best : null;
+}
+$('#bulkOk').onclick = async () => {
+  const role = $('#bulkRole').value; const have = new Set((PG?.users || []).map(u => u.email));
+  const rows = [];
+  $('#bulkTxt').value.split(/\r?\n/).forEach(line => {
+    const cols = line.split(/\t|,(?=\s*\S+@)/).map(x => x.trim()).filter(Boolean);
+    const email = (cols.find(c => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c)) || '').toLowerCase();
+    if (!email || have.has(email) || rows.some(r => r.email === email)) return;
+    const nama = cols.find(c => !c.includes('@')) || null;
+    const tc = nama ? nama.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).replace(/\b(Bin|Binti|Anak|Ak)\b/g, w => w.toLowerCase()) : null;
+    rows.push({ email, nama: tc, peranan: role, teacher_id: nama ? matchTeacher(nama) : null });
+  });
+  if (!rows.length) return $('#bulkErr').textContent = 'Tiada email baharu dijumpai.';
+  try { await q(sb.from('pengguna').insert(rows)); closeModal('#mBulk'); toast(rows.length + ' pengguna didaftarkan'); renderPengguna(true); }
+  catch (e) { $('#bulkErr').textContent = fail(e); }
+};
+
 /* ============ CETAK ============ */
 function printHTML(title, html) {
   const now = new Date().toLocaleString('ms-MY');
@@ -838,23 +1034,25 @@ function printAllSlips() { const L = loads(); printHTML('Slip Agihan Mata Pelaja
 function updatePbar() {
   const n = pending.size + gkPending.size;
   $('#pText').textContent = `${n} perubahan belum disimpan`;
-  $('#pbar').classList.toggle('show', n > 0 && isEditor);
+  $('#pbar').classList.toggle('show', n > 0 && canEditAny());
 }
 $('#pUndo').onclick = () => { if (confirm('Batalkan semua perubahan yang belum disimpan?')) { pending.clear(); gkPending.clear(); render(); } };
 $('#pSave').onclick = () => save();
 
 async function save() {
-  if (!isEditor) return toast('Sila log masuk sebagai editor');
+  if (!canEditAny()) return toast('Anda tiada kebenaran mengedit');
   const p_changes = [...pending].map(([id, t]) => ({ id, old: byId[id].t, t }));
   const p_guru_kelas = [...gkPending].map(([cls, t]) => ({ cls, old: D.guruKelas.find(x => x.cls === cls).t, t }));
   const btn = $('#pSave'); btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
     const r = await q(sb.rpc('simpan_agihan', { p_changes, p_guru_kelas }));
-    const conflicts = r.conflicts || [];
+    const conflicts = r.conflicts || [], ditolak = r.ditolak || [];
     toast(`${(r.saved || []).length} perubahan disimpan`);
-    if (conflicts.length) {
-      msg('Sebahagian tidak disimpan', `<ul style="padding-left:18px">${conflicts.map(c => `<li><b>${esc(labelOf(c.id))}</b> telah diubah oleh orang lain kepada “${esc(nm(c.current) || 'kosong')}”.</li>`).join('')}</ul><p class="muted">Data telah dimuat semula. Sila semak dan ubah semula jika perlu.</p>`);
-    }
+    const li = [
+      ...conflicts.map(c => `<li><b>${esc(labelOf(c.id))}</b> telah diubah oleh orang lain kepada “${esc(nm(c.current) || 'kosong')}”.</li>`),
+      ...ditolak.map(id => `<li><b>${esc(labelOf(id))}</b>: anda tiada kebenaran untuk subjek/medan ini.</li>`)
+    ];
+    if (li.length) msg('Sebahagian tidak disimpan', `<ul style="padding-left:18px">${li.join('')}</ul><p class="muted">Data telah dimuat semula.</p>`);
     pending.clear(); gkPending.clear();
     await load();
   } catch (e) {
@@ -874,7 +1072,7 @@ async function reloadKeepPending() {
   render();
 }
 
-/* ---------- Guru ---------- */
+/* ---------- Guru (admin) ---------- */
 $('#addOk').onclick = async () => {
   const name = $('#addName').value.replace(/\s+/g, ' ').trim();
   if (name.length < 3) return $('#addErr').textContent = 'Nama terlalu pendek';
@@ -901,48 +1099,19 @@ $('#tOk').onclick = async () => {
 };
 
 /* ============ TETAPAN ============ */
-async function openSettings() {
-  $('#setMin').value = cfg.min; $('#setMax').value = cfg.max; $('#setSesi').value = D?.settings.sesi || '';
-  ['#setMin', '#setMax', '#setSesi'].forEach(s => $(s).disabled = !isEditor);
+function openSettings() {
+  if (!D) return;
+  $('#setMin').value = cfg.min; $('#setMax').value = cfg.max; $('#setSesi').value = D.settings.sesi || '';
+  ['#setMin', '#setMax', '#setSesi'].forEach(s => $(s).disabled = !isAdmin());
+  $('#setNote').textContent = isAdmin() ? '' : 'Hanya admin boleh mengubah waktu minimum/maksimum dan sesi.';
   $('#setTheme').value = store.get('agihan.theme', '');
-  const box = $('#setEditorOnly');
-  box.innerHTML = '';
   openModal('#mSet');
-  if (!isEditor) return;
-  box.innerHTML = '<div class="sect"><div class="muted small">Memuatkan…</div></div>';
-  try {
-    const [eds, logs] = await Promise.all([
-      q(sb.from('editors').select('email,nama').order('email')),
-      q(sb.from('audit_log').select('at,by_email,label,old_val,new_val').order('at', { ascending: false }).limit(60))
-    ]);
-    box.innerHTML = `
-      <div class="sect"><h4>Editor</h4>
-        ${eds.map(e => `<div class="ed-row"><span>${esc(e.email)}${e.nama ? ' <span class="faint">· ' + esc(e.nama) + '</span>' : ''}</span>
-          ${e.email === (user.email || '').toLowerCase() ? '<span class="faint small">anda</span>' : `<button class="btn ghost small" data-rm="${esc(e.email)}">Buang</button>`}</div>`).join('')}
-        <div class="row" style="margin-top:8px"><input type="text" id="edEmail" placeholder="email@contoh.com" class="grow"><input type="text" id="edNama" placeholder="Nama (pilihan)" class="grow"><button class="btn" id="edAdd">Tambah</button></div>
-        <div class="faint small" style="margin-top:6px">Akaun log masuk perlu dicipta dalam Supabase (Authentication → Users → Add user). Kemudian tambah email di sini.</div>
-      </div>
-      <div class="sect"><h4>Log perubahan terkini</h4>
-        <div class="log">${logs.map(l => `<div>${esc(l.label)}: <b>${esc(l.old_val || '–')}</b> → <b>${esc(l.new_val || '–')}</b><div class="w">${esc(new Date(l.at).toLocaleString('ms-MY'))} · ${esc(l.by_email || '')}</div></div>`).join('') || '<div class="muted">Belum ada perubahan.</div>'}</div>
-      </div>`;
-    $('#edAdd').onclick = async () => {
-      const email = $('#edEmail').value.trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Email tidak sah');
-      try { await q(sb.from('editors').insert({ email, nama: $('#edNama').value.trim() || null })); toast('Editor ditambah'); openSettings(); }
-      catch (e) { toast(/duplicate/i.test(fail(e)) ? 'Email sudah ada' : fail(e)); }
-    };
-    $$('[data-rm]').forEach(b => b.onclick = async () => {
-      if (!confirm('Buang ' + b.dataset.rm + ' daripada senarai editor?')) return;
-      try { await q(sb.from('editors').delete().eq('email', b.dataset.rm)); toast('Editor dibuang'); openSettings(); }
-      catch (e) { toast(fail(e)); }
-    });
-  } catch (e) { box.innerHTML = `<div class="sect err">${esc(fail(e))}</div>`; }
 }
-$('#btnSettings').onclick = () => { if (D) openSettings(); };
+$('#btnSettings').onclick = openSettings;
 $('#setOk').onclick = async () => {
   const th = $('#setTheme').value; store.set('agihan.theme', th);
   th ? document.documentElement.setAttribute('data-theme', th) : document.documentElement.removeAttribute('data-theme');
-  if (isEditor) {
+  if (isAdmin()) {
     const vals = { waktu_min: String(+$('#setMin').value || 0), waktu_max: String(+$('#setMax').value || 0), sesi: $('#setSesi').value.trim() };
     const ch = Object.entries(vals).filter(([k, v]) => D.settings[k] !== v);
     try {
@@ -955,14 +1124,10 @@ $('#setOk').onclick = async () => {
 
 $('#btnReload').onclick = () => {
   if (dirty() && !confirm('Perubahan yang belum disimpan akan hilang. Teruskan?')) return;
-  load();
+  PG = null; load();
 };
-$$('#tabs button').forEach(b => b.onclick = () => { view = b.dataset.v; render(); window.scrollTo({ top: 0 }); });
+$$('#tabs button').forEach(b => b.onclick = () => { view = b.dataset.v; if (view === 'pengguna') PG = null; render(); window.scrollTo({ top: 0 }); });
 window.addEventListener('beforeunload', e => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
-
-renderAuth();
-sb.auth.getSession().then(({ data }) => refreshAuth(data.session));
-load();
 </script>
 </body>
 </html>

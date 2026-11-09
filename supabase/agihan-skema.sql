@@ -194,3 +194,28 @@ from public.allocations a
 join public.subjects s on s.code = a.subject_code
 join public.classes c on c.name = a.class_name
 left join public.teachers t on t.id = a.teacher_id;
+
+-- =====================================================================
+-- KEMAS KINI: peranan pengguna (admin / ketua_panitia / guru)
+-- Menggantikan jadual editors. Baca wajib log masuk & berdaftar.
+-- =====================================================================
+create table public.pengguna (
+  email text primary key check (email = lower(trim(email)) and email like '%@%'),
+  nama text,
+  peranan text not null default 'guru' check (peranan in ('admin', 'ketua_panitia', 'guru')),
+  subjek text[] not null default '{}',          -- subjek panitia (ketua_panitia)
+  teacher_id bigint references public.teachers(id) on delete set null,
+  aktif boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
+);
+
+-- private.peranan(), private.boleh_lihat(), private.is_admin(), private.boleh_edit_subjek(kod)
+--   * baca settings/teachers/subjects/classes/allocations: boleh_lihat() (pengguna aktif)
+--   * ubah allocations: boleh_edit_subjek(subject_code) — admin, atau ketua_panitia bagi subjek dalam pengguna.subjek
+--   * ubah teachers/subjects/classes/settings, urus pengguna, baca audit_log: is_admin()
+--   * trigger jaga_admin: mesti kekal sekurang-kurangnya seorang admin aktif
+-- public.simpan_agihan(p_changes, p_guru_kelas) -> {saved, conflicts, ditolak}
+-- public.agihan_untuk_jana() -> {agihan:[{kelas,tahun,subjek_kod,slot,guru,waktu}], guruKelas:[{kelas,guru}]}
+--   (anon boleh panggil — untuk Jana Jadual; data sama seperti jadual waktu awam)
+-- Definisi penuh: migration "peranan_pengguna" dalam projek agihan-guru.
