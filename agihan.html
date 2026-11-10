@@ -1099,23 +1099,7 @@ function admSubjek() {
       ${ro ? `<div class="ro-note">Versi ini dikunci. Buka kunci di Admin → Versi untuk mengubah mata pelajaran.</div>` : ''}
     </div>
     <div class="st-grid">${cards}</div>
-    <div class="card" style="margin-top:16px">
-      <div class="pad" style="border-bottom:1px solid var(--line)"><h2 style="margin:0">Senarai induk mata pelajaran</h2>
-        <div class="muted small">Semua mata pelajaran yang boleh didaftarkan ke mana-mana tahap. Perubahan nama disimpan serta-merta.</div></div>
-      <div class="tbl-wrap"><table class="t pg-tbl">
-        <thead><tr><th>Kod</th><th>Nama ringkas</th><th>Nama penuh (tajuk)</th><th>Digunakan</th></tr></thead>
-        <tbody>${D.subjects.map(s => `<tr><td><b>${esc(s.code)}</b></td>
-          <td><input type="text" value="${esc(s.name)}" data-sm="${s.code}" data-f="name" style="width:100%"></td>
-          <td><input type="text" value="${esc(s.title)}" data-sm="${s.code}" data-f="title" style="width:100%"></td>
-          <td class="small faint">${D.tahap.filter(t => D.st[t.kod]?.[s.code]).map(t => esc(t.kod)).join(', ') || '—'}</td></tr>`).join('')}</tbody>
-      </table></div>
-      <div class="pad row" style="border-top:1px solid var(--line)">
-        <input type="text" id="smKod" placeholder="Kod (cth. PM)" style="width:120px">
-        <input type="text" id="smNama" placeholder="Nama ringkas (cth. Pendidikan Moral)" class="grow">
-        <input type="text" id="smTajuk" placeholder="Nama penuh (cth. PENDIDIKAN MORAL)" class="grow">
-        <button class="btn pri" id="smAdd">+ Subjek baharu</button>
-      </div>
-    </div>`;
+    ${masterHTML()}`;
 
   $$('[data-st]').forEach(i => i.onchange = () => {
     const [t, c] = i.dataset.st.split('|'); const x = SD[t][c];
@@ -1138,10 +1122,91 @@ function admSubjek() {
   });
   if ($('#stUndo')) $('#stUndo').onclick = () => { SD = stClone(D.st); admSubjek(); };
   if ($('#stSave')) $('#stSave').onclick = saveSubjekTahap;
-  $$('[data-sm]').forEach(i => i.onchange = async () => {
-    const v = i.value.trim(); if (!v) return;
-    try { const r = await q(sb.from('subjects').update({ [i.dataset.f]: v }).eq('code', i.dataset.sm).select('code')); if (!r.length) throw new Error('Tiada kebenaran'); S[i.dataset.sm][i.dataset.f] = v; toast('Disimpan'); }
-    catch (e) { msg('Gagal', esc(fail(e))); }
+  bindMaster();
+}
+let smEdit = null;   // kod subjek yang sedang disunting dalam senarai induk
+function masterHTML() {
+  const used = c => D.tahap.filter(t => D.st[t.kod]?.[c]).map(t => t.kod);
+  const n = D.subjects.length;
+  return `<div class="card" style="margin-top:16px">
+      <div class="pad" style="border-bottom:1px solid var(--line)"><h2 style="margin:0">Senarai induk mata pelajaran</h2>
+        <div class="muted small">Semua mata pelajaran yang boleh didaftarkan ke mana-mana tahap. Klik <b>Edit</b> untuk menukar kod / nama, ↑↓ untuk susunan paparan.</div></div>
+      <div class="tbl-wrap"><table class="t pg-tbl">
+        <thead><tr><th style="width:110px">Kod</th><th>Nama ringkas</th><th>Nama penuh (tajuk)</th><th>Digunakan</th><th style="width:250px"></th></tr></thead>
+        <tbody>${D.subjects.map((s, i) => smEdit === s.code ? `<tr class="ubah">
+            <td><input type="text" id="smeKod" value="${esc(s.code)}" style="width:96px;text-transform:uppercase"></td>
+            <td><input type="text" id="smeNama" value="${esc(s.name)}" style="width:100%"></td>
+            <td><input type="text" id="smeTajuk" value="${esc(s.title)}" style="width:100%"></td>
+            <td class="small faint">${used(s.code).join(', ') || '—'}</td>
+            <td><div class="row" style="gap:6px"><button class="btn pri" id="smeOk">Simpan</button><button class="btn" id="smeBatal">Batal</button></div></td></tr>`
+          : `<tr>
+            <td><b>${esc(s.code)}</b></td><td>${esc(s.name)}</td><td class="small">${esc(s.title)}</td>
+            <td class="small faint">${used(s.code).join(', ') || '—'}</td>
+            <td><div class="row" style="gap:4px;flex-wrap:nowrap">
+              <button class="btn ghost" data-smup="${i}" title="Naik"${i === 0 ? ' disabled' : ''}>↑</button>
+              <button class="btn ghost" data-smdn="${i}" title="Turun"${i === n - 1 ? ' disabled' : ''}>↓</button>
+              <button class="btn" data-sme="${esc(s.code)}">Edit</button>
+              <button class="btn ghost" data-smdel="${esc(s.code)}" style="color:var(--bad)">Padam</button>
+            </div></td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="pad row" style="border-top:1px solid var(--line)">
+        <input type="text" id="smKod" placeholder="Kod (cth. PM)" style="width:120px">
+        <input type="text" id="smNama" placeholder="Nama ringkas (cth. Pendidikan Moral)" class="grow">
+        <input type="text" id="smTajuk" placeholder="Nama penuh (cth. PENDIDIKAN MORAL)" class="grow">
+        <button class="btn pri" id="smAdd">+ Subjek baharu</button>
+      </div>
+    </div>`;
+}
+async function smReload() {
+  const keep = SD; await reloadKeepPending(); SD = keep; view = 'pengguna'; adminSub = 'subjek'; renderPengguna();
+}
+function smPerluSimpanDulu() {
+  if (SD && stDiff().n) { msg('Simpan dahulu', 'Ada perubahan senarai tahap yang belum disimpan. Tekan <b>Simpan</b> atau <b>Batal</b> di atas dahulu.'); return true; }
+  return false;
+}
+function bindMaster() {
+  $$('[data-sme]').forEach(b => b.onclick = () => { if (smPerluSimpanDulu()) return; smEdit = b.dataset.sme; admSubjek(); setTimeout(() => $('#smeNama')?.focus(), 30); });
+  if ($('#smeBatal')) $('#smeBatal').onclick = () => { smEdit = null; admSubjek(); };
+  if ($('#smeOk')) $('#smeOk').onclick = async () => {
+    const lama = smEdit, s = S[lama];
+    const code = $('#smeKod').value.trim().toUpperCase().replace(/\s+/g, ''), name = $('#smeNama').value.trim(), title = $('#smeTajuk').value.trim().toUpperCase() || name.toUpperCase();
+    if (!/^[A-Z0-9_-]{2,10}$/.test(code)) return toast('Kod 2–10 aksara (huruf/nombor)');
+    if (code !== lama && S[code]) return toast('Kod ' + code + ' sudah wujud');
+    if (name.length < 2) return toast('Isi nama ringkas');
+    const KHAS = ['PJPK', 'PI', 'PIQK', 'TSK', 'PSM'];
+    if (code !== lama && !confirm(`Tukar kod ${lama} → ${code}?\n\nSemua agihan, senarai tahap dan subjek ketua panitia dalam SEMUA versi akan dikemas kini.` +
+      (KHAS.includes(lama) ? `\n\nAMARAN: Jana Jadual menggunakan kod ${lama} untuk pemetaan khas (${lama === 'PSM' ? 'PSM→MZK' : lama === 'PJPK' ? 'PJ + PK' : 'PI-U/PI-J/PI-Q/TAS'}). Kod baharu tidak akan dipetakan secara automatik.` : ''))) return;
+    const patch = {}; if (code !== lama) patch.code = code; if (name !== s.name) patch.name = name; if (title !== s.title) patch.title = title;
+    if (!Object.keys(patch).length) { smEdit = null; return admSubjek(); }
+    try {
+      const r = await q(sb.from('subjects').update(patch).eq('code', lama).select('code'));
+      if (!r.length) throw new Error('Tiada kebenaran');
+      if (curSub === lama) curSub = code;
+      smEdit = null; SD = null; toast('Subjek dikemas kini'); await smReload();
+    } catch (e) { msg('Gagal menyimpan', esc(/duplicate/i.test(fail(e)) ? 'Kod sudah wujud' : fail(e))); }
+  };
+  const tukar = async (i, j) => {
+    if (smPerluSimpanDulu()) return;
+    const a = D.subjects[i], b = D.subjects[j];
+    const sa = a.sort ?? i + 1, sb_ = b.sort ?? j + 1;
+    try {
+      await q(sb.from('subjects').update({ sort: sa === sb_ ? sb_ + (j > i ? 1 : -1) : sb_ }).eq('code', a.code).select('code'));
+      await q(sb.from('subjects').update({ sort: sa }).eq('code', b.code).select('code'));
+      await smReload();
+    } catch (e) { msg('Gagal', esc(fail(e))); }
+  };
+  $$('[data-smup]').forEach(b => b.onclick = () => tukar(+b.dataset.smup, +b.dataset.smup - 1));
+  $$('[data-smdn]').forEach(b => b.onclick = () => tukar(+b.dataset.smdn, +b.dataset.smdn + 1));
+  $$('[data-smdel]').forEach(b => b.onclick = async () => {
+    if (smPerluSimpanDulu()) return;
+    const c = b.dataset.smdel;
+    if (D.tahap.some(t => D.st[t.kod]?.[c])) return msg('Tidak boleh dipadam', `<b>${esc(c)}</b> masih didaftarkan dalam ${D.tahap.filter(t => D.st[t.kod]?.[c]).map(t => esc(t.nama)).join(', ')} bagi versi ini. Buang dahulu dari tahap tersebut dan tekan Simpan.`);
+    if (!confirm(`Padam subjek ${c} — ${S[c].name} daripada senarai induk?`)) return;
+    try {
+      const r = await q(sb.from('subjects').delete().eq('code', c).select('code'));
+      if (!r.length) throw new Error('Tiada kebenaran');
+      toast('Subjek ' + c + ' dipadam'); SD = null; await smReload();
+    } catch (e) { msg('Tidak boleh dipadam', /foreign key|violates/i.test(fail(e)) ? `<b>${esc(c)}</b> masih digunakan dalam versi agihan lain. Buang dari senarai tahap versi tersebut dahulu.` : esc(fail(e))); }
   });
   $('#smAdd').onclick = async () => {
     const code = $('#smKod').value.trim().toUpperCase().replace(/\s+/g, ''), name = $('#smNama').value.trim(), title = ($('#smTajuk').value.trim() || name).toUpperCase();
@@ -1150,7 +1215,7 @@ function admSubjek() {
     if (name.length < 2) return toast('Isi nama subjek');
     try {
       await q(sb.from('subjects').insert({ code, name, title, sort: Math.max(0, ...D.subjects.map(s => s.sort || 0)) + 1 }));
-      toast('Subjek ' + code + ' ditambah'); const keep = SD; await reloadKeepPending(); SD = keep; view = 'pengguna'; adminSub = 'subjek'; renderPengguna();
+      toast('Subjek ' + code + ' ditambah'); await smReload();
     } catch (e) { msg('Gagal', esc(fail(e))); }
   };
 }

@@ -242,3 +242,9 @@ create table public.pengguna (
 -- private.tahap_tahun(tahun) -> kod tahap;  private.slot_patut(versi) -> slot yang sepatutnya wujud
 -- public.selaras_slot(p_versi, p_semak) -> {tambah, buang, buang_berisi}   [admin, versi tidak dikunci]
 -- cipta_versi() turut menyalin subjek_tahap; v_agihan & agihan_untuk_jana() mengira waktu dari subjek_tahap
+
+-- =====================================================================
+-- KEMAS KINI: senarai induk subjek boleh disunting (migration "subjek_induk_edit")
+-- =====================================================================
+-- allocations.subject_code -> subjects(code) on update cascade on delete restrict
+-- policy "admin padam subjects"; trigger subjek_induk_berubah: kemas kini pengguna.subjek bila kod ditukar/dipadam + log
