@@ -218,6 +218,22 @@ tr.off td{opacity:.5}
 #vbar{padding-top:14px}
 .tahap-wrap{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));align-items:start}
 .lnk{font-size:12px;flex:none;cursor:help;opacity:.75}
+/* ===== warna kelas: Amanah kuning, Bestari merah, Cemerlang biru, Dinamik hijau ===== */
+:root{--k-am:#d49b00;--k-am-s:#fdf4d3;--k-be:#d93b3b;--k-be-s:#fde4e3;--k-ce:#2563eb;--k-ce-s:#e0eafd;--k-di:#16a34a;--k-di-s:#dcf3e4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--k-am:#f0c040;--k-am-s:#3a3010;--k-be:#f07171;--k-be-s:#3d1a1a;--k-ce:#6f9cf5;--k-ce-s:#162746;--k-di:#4cc581;--k-di-s:#12331f}}
+:root[data-theme="dark"]{--k-am:#f0c040;--k-am-s:#3a3010;--k-be:#f07171;--k-be-s:#3d1a1a;--k-ce:#6f9cf5;--k-ce-s:#162746;--k-di:#4cc581;--k-di-s:#12331f}
+.k-AMANAH{--kc:var(--k-am);--ks:var(--k-am-s)} .k-BESTARI{--kc:var(--k-be);--ks:var(--k-be-s)}
+.k-CEMERLANG{--kc:var(--k-ce);--ks:var(--k-ce-s)} .k-DINAMIK{--kc:var(--k-di);--ks:var(--k-di-s)}
+.kdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--kc,var(--ink-3));margin-right:6px;vertical-align:1px;flex:none}
+.crow.kc{border-left:4px solid var(--kc);padding-left:12px}
+.crow.kc .cls{color:var(--ink)}
+td.kc-cell{border-left:4px solid var(--kc);background:var(--ks)}
+.chip.kc{border-color:var(--kc);background:var(--ks);color:var(--ink)}
+.chip.kc.on{background:var(--kc);border-color:var(--kc);color:#fff}
+.kbadge{display:inline-flex;align-items:center;gap:6px;background:var(--ks);border:1px solid var(--kc);border-radius:10px;padding:3px 12px}
+.klegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.klegend span{display:inline-flex;align-items:center}
+
 .tahap h3{flex-wrap:wrap;gap:4px}
 .st-tbl input[type=number]{width:72px;min-height:32px;padding:4px 8px}
 .st-tbl td{vertical-align:middle}
@@ -410,6 +426,8 @@ const gkEff = g => gkPending.has(g.cls) ? gkPending.get(g.cls) : g.t;
 const nm = id => (id != null && T[id]) ? T[id].name : '';
 const cfg = { get min() { return +(D?.settings.waktu_min ?? 24); }, get max() { return +(D?.settings.waktu_max ?? 30); } };
 const lvl = n => n > cfg.max ? 'over' : n < cfg.min ? 'under' : 'ok';
+const kk = c => 'k-' + String(c || '').split(' ').slice(1).join('').toUpperCase();   // kelas warna ikut nama kelas
+const kdot = c => `<span class="kdot ${kk(c)}"></span>`;
 const shortCls = c => { const p = c.split(' '); return p[0] + (p[1] ? p[1][0] : ''); };
 const dirty = () => pending.size + gkPending.size > 0;
 const toId = v => (v === '' || v == null) ? null : Number(v);
@@ -650,7 +668,7 @@ function renderAgihan() {
           <select data-id="${a.id}" class="${pending.has(a.id) || (LINK[a.id] || []).some(b => pending.has(b.id)) ? 'chg' : ''} ${v != null ? '' : 'empty'}" aria-label="Guru ${esc(c)}"${dis}>${teacherOptions(v, L)}</select>${LINK[a.id] ? `<span class="lnk" title="Guru sama dengan ${esc(linkLabel(a))} — diisi serentak">🔗</span>` : ''}
           <span class="ld ${v != null ? lvl(L[v]?.total || 0) : ''}" title="Jumlah waktu guru ini seminggu">${v != null ? (L[v]?.total || 0) : '–'}</span></div>`;
       }).join('');
-      return `<div class="crow"><div class="cls">${esc(c)}<small>${x.waktu} waktu/mgg</small></div><div>${slots}</div></div>`;
+      return `<div class="crow kc ${kk(c)}"><div class="cls">${esc(c)}<small>${x.waktu} waktu/mgg</small></div><div>${slots}</div></div>`;
     }).join('');
     return `<div class="card tahap">${head}<span class="faint small">${x.waktu} waktu${x.bil_slot > 1 ? ` · ${x.bil_slot} guru × ${+(x.waktu / x.bil_slot).toFixed(2)}` : ''}${x.kolaborasi ? ' · kolaborasi' : ''}</span></h3>${rows || '<div class="pad muted">Tiada kelas</div>'}</div>`;
   }).join('');
@@ -802,7 +820,7 @@ function classTeachers(code, cls) {
 }
 function renderKelas() {
   const chips = [1, 2, 3, 4, 5, 6].map(y => `<div class="row" style="gap:6px;margin:3px 0"><span class="faint small" style="width:56px">Tahun ${y}</span>${
-    D.classes.filter(c => parseInt(c) === y).map(c => `<button class="chip${c === curCls ? ' on' : ''}" data-c="${esc(c)}">${esc(c.split(' ').slice(1).join(' '))}</button>`).join('')}</div>`).join('');
+    D.classes.filter(c => parseInt(c) === y).map(c => `<button class="chip kc ${kk(c)}${c === curCls ? ' on' : ''}" data-c="${esc(c)}">${esc(c.split(' ').slice(1).join(' '))}</button>`).join('')}</div>`).join('');
   const g = D.guruKelas.find(x => x.cls === curCls);
   let tot = 0;
   const cards = D.subjects.filter(s => IDX[s.code]?.[curCls]).map(s => {
@@ -821,7 +839,7 @@ function renderKelas() {
     </div></div>
     <div class="card pad" style="margin-top:16px">
       <div class="row" style="justify-content:space-between;margin-bottom:12px">
-        <div><h2>${esc(curCls)}</h2><div class="muted small">${esc(tahapNama(tahapOf(curCls)))} · ${tot} waktu seminggu (tidak termasuk kolaborasi)</div></div>
+        <div><h2 class="kbadge ${kk(curCls)}" style="margin-bottom:4px">${kdot(curCls)}${esc(curCls)}</h2><div class="muted small">${esc(tahapNama(tahapOf(curCls)))} · ${tot} waktu seminggu (tidak termasuk kolaborasi)</div></div>
         ${g ? `<label class="row small" style="gap:8px"><b>Guru Kelas</b>
           <select id="gkSel" class="${gkPending.has(g.cls) ? 'chg' : ''}" style="max-width:280px"${canEditGK() ? '' : ' disabled'}>${teacherOptions(gkEff(g), loads())}</select></label>` : ''}
       </div>
@@ -874,7 +892,7 @@ function renderGuruKelas() {
         <optgroup label="Guru lain">${lain.map(opt).join('')}${cur != null && !ajar.has(cur) && !lain.some(t => t.id === cur) ? opt(T[cur]) : ''}</optgroup>`;
     };
     const dua = cur != null && kira[cur] > 1;
-    return `<tr><td><b>${esc(c)}</b><div class="faint small">${esc(tahapNama(tahapOf(c)))}</div></td>${cells}
+    return `<tr><td class="kc-cell ${kk(c)}"><b>${esc(c)}</b><div class="faint small">${esc(tahapNama(tahapOf(c)))}</div></td>${cells}
       <td style="min-width:240px">${g ? `<select data-gk="${esc(c)}" class="${gkPending.has(c) ? 'chg' : ''} ${cur == null ? 'empty' : ''}" style="width:100%"${ed ? '' : ' disabled'}>${pilihan()}</select>
         ${cur != null ? `<div class="small faint" style="margin-top:3px">${ajar.has(cur) ? `Mengajar ${ajar.get(cur)} waktu di kelas ini` : '<span style="color:var(--warn)">Tidak mengajar kelas ini</span>'} · beban ${L[cur]?.total || 0}w${dua ? ' · <span style="color:var(--bad)">guru kelas ' + kira[cur] + ' kelas</span>' : ''}</div>` : ''}` : '<span class="faint">—</span>'}</td></tr>`;
   }).join('');
@@ -919,7 +937,7 @@ function matrixHTML(interactive) {
   const head = `<tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr>`;
   const body = D.classes.map(c => {
     const g = D.guruKelas.find(x => x.cls === c);
-    return `<tr${interactive ? ` class="clk" data-c="${esc(c)}"` : ''}><td><b>${esc(c)}</b></td>${subs.map(s => {
+    return `<tr${interactive ? ` class="clk" data-c="${esc(c)}"` : ''}><td class="kc-cell ${kk(c)}"><b>${esc(c)}</b></td>${subs.map(s => {
       const ts = per(s, c) ? classTeachers(s.code, c) : null;
       return `<td>${ts === null ? '<span class="faint">–</span>' : ts.length ? ts.map(esc).join('<br>') : '<span style="color:var(--bad)">kosong</span>'}</td>`;
     }).join('')}<td>${g ? esc(nm(gkEff(g))) : ''}</td></tr>`;
