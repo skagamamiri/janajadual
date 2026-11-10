@@ -609,13 +609,23 @@ function roNote(code) {
   if (!isAdmin()) return `<div class="ro-note">Paparan sahaja. Perubahan agihan dibuat oleh Ketua Panitia dan admin.${isPentadbir() ? ' Anda boleh memilih guru kelas di tab Guru Kelas.' : ''}</div>`;
   return '';
 }
-function teacherOptions(cur) {
+// Label pilihan guru: nama + jumlah waktu semasa (semua subjek), cth. "Liew Siew Mui (24 waktu)"
+const fmtW = n => (Math.round(n * 10) / 10).toString();
+function optLabel(t, L) {
+  const w = L ? (L[t.id]?.total || 0) : null;
+  return t.name + (t.aktif ? '' : ' (tidak aktif)') + (L ? ` (${fmtW(w)} waktu${w > cfg.max ? ' ⚠' : ''})` : '');
+}
+function teacherOptions(cur, L) {
   let h = '<option value="">— Kosong —</option>';
   for (const t of D.teachersSorted) {
     if (!t.aktif && t.id !== cur) continue;
-    h += `<option value="${t.id}"${t.id === cur ? ' selected' : ''}>${esc(t.name)}${t.aktif ? '' : ' (tidak aktif)'}</option>`;
+    h += `<option value="${t.id}"${t.id === cur ? ' selected' : ''}>${esc(optLabel(t, L))}</option>`;
   }
   return h;
+}
+// kemas kini label waktu dalam semua dropdown tanpa melukis semula
+function refreshOptLabels(L) {
+  $$('select[data-id] option[value]:not([value=""]), #gkSel option[value]:not([value=""])').forEach(o => { const t = T[+o.value]; if (t) o.textContent = optLabel(t, L); });
 }
 
 function renderAgihan() {
@@ -637,7 +647,7 @@ function renderAgihan() {
       const slots = arr.map(a => {
         const v = eff(a);
         return `<div class="slot">${arr.length > 1 ? `<span class="sn">${a.slot}</span>` : ''}
-          <select data-id="${a.id}" class="${pending.has(a.id) || (LINK[a.id] || []).some(b => pending.has(b.id)) ? 'chg' : ''} ${v != null ? '' : 'empty'}" aria-label="Guru ${esc(c)}"${dis}>${teacherOptions(v)}</select>${LINK[a.id] ? `<span class="lnk" title="Guru sama dengan ${esc(linkLabel(a))} — diisi serentak">🔗</span>` : ''}
+          <select data-id="${a.id}" class="${pending.has(a.id) || (LINK[a.id] || []).some(b => pending.has(b.id)) ? 'chg' : ''} ${v != null ? '' : 'empty'}" aria-label="Guru ${esc(c)}"${dis}>${teacherOptions(v, L)}</select>${LINK[a.id] ? `<span class="lnk" title="Guru sama dengan ${esc(linkLabel(a))} — diisi serentak">🔗</span>` : ''}
           <span class="ld ${v != null ? lvl(L[v]?.total || 0) : ''}" title="Jumlah waktu guru ini seminggu">${v != null ? (L[v]?.total || 0) : '–'}</span></div>`;
       }).join('');
       return `<div class="crow"><div class="cls">${esc(c)}<small>${x.waktu} waktu/mgg</small></div><div>${slots}</div></div>`;
@@ -692,6 +702,7 @@ function refreshLoads() {
     if (e && !d) b.insertAdjacentHTML('beforeend', '<span class="dot"></span>');
     if (!e && d) d.remove();
   });
+  refreshOptLabels(L);
   renderSide(L);
   updatePbar();
 }
@@ -812,7 +823,7 @@ function renderKelas() {
       <div class="row" style="justify-content:space-between;margin-bottom:12px">
         <div><h2>${esc(curCls)}</h2><div class="muted small">${esc(tahapNama(tahapOf(curCls)))} · ${tot} waktu seminggu (tidak termasuk kolaborasi)</div></div>
         ${g ? `<label class="row small" style="gap:8px"><b>Guru Kelas</b>
-          <select id="gkSel" class="${gkPending.has(g.cls) ? 'chg' : ''}" style="max-width:280px"${canEditGK() ? '' : ' disabled'}>${teacherOptions(gkEff(g))}</select></label>` : ''}
+          <select id="gkSel" class="${gkPending.has(g.cls) ? 'chg' : ''}" style="max-width:280px"${canEditGK() ? '' : ' disabled'}>${teacherOptions(gkEff(g), loads())}</select></label>` : ''}
       </div>
       <div class="cls-grid">${cards}</div>
     </div>
@@ -857,7 +868,7 @@ function renderGuruKelas() {
     const pilihan = () => {
       const mengajar = [...ajar.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => T[t]).filter(Boolean);
       const lain = D.teachersSorted.filter(t => t.aktif && !ajar.has(t.id));
-      const opt = t => `<option value="${t.id}"${t.id === cur ? ' selected' : ''}>${esc(t.name)}${kira[t.id] && t.id !== cur ? ' (GK ' + D.guruKelas.filter(x => gkEff(x) === t.id).map(x => shortCls(x.cls)).join(', ') + ')' : ''}</option>`;
+      const opt = t => `<option value="${t.id}"${t.id === cur ? ' selected' : ''}>${esc(t.name)} (${fmtW(L[t.id]?.total || 0)} waktu)${kira[t.id] && t.id !== cur ? ' (GK ' + D.guruKelas.filter(x => gkEff(x) === t.id).map(x => shortCls(x.cls)).join(', ') + ')' : ''}</option>`;
       return `<option value="">— Belum dipilih —</option>
         ${mengajar.length ? `<optgroup label="Mengajar kelas ini">${mengajar.map(opt).join('')}</optgroup>` : ''}
         <optgroup label="Guru lain">${lain.map(opt).join('')}${cur != null && !ajar.has(cur) && !lain.some(t => t.id === cur) ? opt(T[cur]) : ''}</optgroup>`;
