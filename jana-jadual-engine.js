@@ -507,13 +507,15 @@
     const m = String(nama || "").trim().match(/^(\d)\s*([A-Za-z])/);
     return m ? m[1] + m[2].toUpperCase() : String(nama || "").trim();
   }
-  const PETA_SUBJEK_AGIHAN = { PSM: "MZK" };
+  // Kod lama/baharu Agihan Guru -> kod jadual. Kod lain dipadankan terus (cth. BM, PI-U, PI-J, PK, AM).
+  const ALIAS_AGIHAN = { PSM: "MZK", PIQK: "PI-Q", TSK: "TAS", TMK: "TAS", PJPK: "PJ", PI: "PI-J" };
   function barisDariAgihanGuru(agihan, P) {
     const ikutKelas = {};
     for (const a of agihan || []) {
       const k = kodKelasAgihan(a.kelas);
+      const kod = ALIAS_AGIHAN[a.subjek_kod] || a.subjek_kod;
       const s = (ikutKelas[k] ||= {});
-      const o = (s[a.subjek_kod] ||= { guru: [], waktu: 0, slot: 0 });
+      const o = (s[kod] ||= { guru: [], waktu: 0, slot: 0 });
       o.waktu += Number(a.waktu) || 0; o.slot++;
       if (a.guru && !o.guru.includes(a.guru)) o.guru.push(a.guru);
     }
@@ -524,36 +526,38 @@
       for (const p of P.pelajaran || []) if (p.pecahan && p.pecahan.length) pecLama[kk[p.kelas] + "|" + sk[p.subjek]] = p.pecahan;
     }
     const out = [];
+    const uniq = arr => arr.filter((g, i, x) => g && x.indexOf(g) === i);
     const tambah = (kelas, subjek, guru, masa) => {
       masa = Math.round(masa);
       if (!(masa > 0)) return;
       const lama = pecLama[kelas.toUpperCase() + "|" + subjek.toUpperCase()];
       const pec = lama && lama.reduce((x, y) => x + y, 0) === masa ? lama.join("+") : "";
-      out.push({ kelas, subjek, guru: guru.filter(Boolean).join(" / "), masa, pecahan: pec, bilik: "" });
+      out.push({ kelas, subjek, guru: uniq(guru).join(" / "), masa, pecahan: pec, bilik: "" });
     };
-    const kelasUrut = Object.keys(ikutKelas).sort();
-    for (const k of kelasUrut) {
+    for (const k of Object.keys(ikutKelas).sort()) {
       const S = ikutKelas[k];
+      // Struktur LAMA (sheet asal): PI-J/PI = 8 waktu termasuk PI-U, PI-J, PI-Q & TAS; guru PI turut mengajar PI-Q & TAS.
+      const piLama = S["PI-J"] && S["PI-J"].waktu >= 4 && !S["PI-U"];
+      // PJ lama = PJ + PK (tiada PK berasingan)
+      const pjLama = S.PJ && !S.PK && S.PJ.waktu >= 3;
       for (const [kod, o] of Object.entries(S)) {
-        if (kod === "PIQK" || kod === "TSK") continue;
-        if (kod === "PJPK") {
+        if (piLama && (kod === "PI-Q" || kod === "TAS")) continue;
+        if (pjLama && kod === "PJ") {
           const pk = Math.round(o.waktu / 3);
           tambah(k, "PJ", o.guru, o.waktu - pk); tambah(k, "PK", o.guru, pk);
-        } else if (kod === "PI") {
+        } else if (piLama && kod === "PI-J") {
           const gPI = o.guru[0];
-          const q = S.PIQK, t = S.TSK;
+          const q = S["PI-Q"], t = S.TAS;
           const piq = q ? q.waktu : 0, tas = t ? t.waktu : 0;
-          if (q) tambah(k, "PI-Q", [...(q.guru), gPI].filter((g, i, a) => a.indexOf(g) === i), piq);
-          if (t) tambah(k, "TAS", [...(t.guru), gPI].filter((g, i, a) => a.indexOf(g) === i), tas);
+          if (q) tambah(k, "PI-Q", [...q.guru, gPI], piq);
+          if (t) tambah(k, "TAS", [...t.guru, gPI], tas);
           const baki = o.waktu - piq - tas;
           const j = baki >= 2 ? 1 : 0;
           tambah(k, "PI-U", o.guru, baki - j); tambah(k, "PI-J", o.guru, j);
         } else {
-          tambah(k, PETA_SUBJEK_AGIHAN[kod] || kod, o.guru, o.waktu);
+          tambah(k, kod, o.guru, o.waktu);   // struktur baharu: satu-satu (guru kolaborasi digabung dengan "/")
         }
       }
-      // kolaborasi tanpa PI (jarang): masukkan terus
-      if (!S.PI) { if (S.PIQK) tambah(k, "PI-Q", S.PIQK.guru, S.PIQK.waktu); if (S.TSK) tambah(k, "TAS", S.TSK.guru, S.TSK.waktu); }
     }
     return out;
   }

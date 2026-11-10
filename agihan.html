@@ -1250,9 +1250,7 @@ function bindMaster() {
     if (!/^[A-Z0-9_-]{2,10}$/.test(code)) return toast('Kod 2–10 aksara (huruf/nombor)');
     if (code !== lama && S[code]) return toast('Kod ' + code + ' sudah wujud');
     if (name.length < 2) return toast('Isi nama ringkas');
-    const KHAS = ['PJPK', 'PI', 'PIQK', 'TSK', 'PSM'];
-    if (code !== lama && !confirm(`Tukar kod ${lama} → ${code}?\n\nSemua agihan, senarai tahap dan subjek ketua panitia dalam SEMUA versi akan dikemas kini.` +
-      (KHAS.includes(lama) ? `\n\nAMARAN: Jana Jadual menggunakan kod ${lama} untuk pemetaan khas (${lama === 'PSM' ? 'PSM→MZK' : lama === 'PJPK' ? 'PJ + PK' : 'PI-U/PI-J/PI-Q/TAS'}). Kod baharu tidak akan dipetakan secara automatik.` : ''))) return;
+    if (code !== lama && !confirm(`Tukar kod ${lama} → ${code}?\n\nSemua agihan, senarai tahap dan subjek ketua panitia dalam SEMUA versi akan dikemas kini.\n\nPeringatan: Jana Jadual memadankan subjek ikut kod — pastikan kod sama seperti dalam jadual waktu (cth. BM, PI-U, PI-J, PI-Q; TMK dipadankan ke TAS).`)) return;
     const patch = {}; if (code !== lama) patch.code = code; if (name !== s.name) patch.name = name; if (title !== s.title) patch.title = title;
     if (!Object.keys(patch).length) { smEdit = null; return admSubjek(); }
     try {

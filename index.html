@@ -405,7 +405,7 @@ async function importDariAgihanGuru(ganti) {
 function dlgImportAgihan() {
   modal(`<h2>Import agihan guru</h2>
     <div class="item" style="margin-bottom:12px"><i class="fa-solid fa-cloud-arrow-down" style="color:var(--acc)"></i>
-      <div class="t"><b>Terus dari sistem Agihan Guru</b><span class="muted small">Versi semasa dari <a href="agihan.html" target="_blank">agihan.html</a>. PSM→MZK, PJPK→PJ+PK, PI→PI-U, PI-J, PI-Q, TAS (guru PI + guru kolaborasi). Pecahan blok sedia ada dikekalkan.</span></div>
+      <div class="t"><b>Terus dari sistem Agihan Guru</b><span class="muted small">Versi semasa dari <a href="agihan.html" target="_blank">agihan.html</a>. Subjek dipadankan ikut kod (TMK→TAS, PSM→MZK). Struktur lama (PI 8 waktu, PJ tanpa PK) dipecah automatik kepada PI-U/PI-J/PI-Q/TAS dan PJ+PK. Pecahan blok sedia ada dikekalkan.</span></div>
       <button class="pri mini" id="bAgihan">Ambil</button></div>
     <p class="muted small" style="margin-top:0">… atau dari fail / tampal. Lajur (baris pertama tajuk): <b>Kelas, Subjek, Guru, Masa</b>, Pecahan, Bilik.<br>
     Masa = bilangan masa ${P.tetapan.minitSlot} minit seminggu. Guru bersama dipisah dengan "/". Pecahan contoh <code>2+2+1</code> (pilihan).</p>
