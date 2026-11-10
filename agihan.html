@@ -256,6 +256,7 @@ tr.off td{opacity:.5}
       <button data-v="agihan" class="on">Agihan</button>
       <button data-v="beban">Beban Waktu Guru</button>
       <button data-v="kelas">Rumusan Kelas</button>
+      <button data-v="gurukelas">Guru Kelas</button>
       <button data-v="eksport">Eksport &amp; Cetak</button>
       <button data-v="pengguna" class="hide" id="tabPengguna">Admin</button>
     </nav>
@@ -577,7 +578,7 @@ function render() {
   if (!D) return;
   renderVbar();
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
-  ({ agihan: renderAgihan, beban: renderBeban, kelas: renderKelas, eksport: renderEksport, pengguna: renderPengguna })[view]();
+  ({ agihan: renderAgihan, beban: renderBeban, kelas: renderKelas, gurukelas: renderGuruKelas, eksport: renderEksport, pengguna: renderPengguna })[view]();
   updatePbar();
 }
 function roNote(code) {
@@ -796,6 +797,65 @@ function renderKelas() {
     gs.classList.toggle('chg', gkPending.has(g.cls)); updatePbar();
   };
 }
+/* ---------- GURU KELAS ---------- */
+const GK_MIN_WAKTU = 4;
+function renderGuruKelas() {
+  const ed = canEditGK();
+  const L = loads();
+  // subjek dengan >= 4 waktu seminggu di mana-mana tahap (bukan kolaborasi), ikut susunan senarai induk
+  const subs = D.subjects.filter(s => D.tahap.some(t => { const x = D.st[t.kod]?.[s.code]; return x && !x.kolaborasi && x.waktu >= GK_MIN_WAKTU; }));
+  const isi = D.guruKelas.filter(g => gkEff(g) != null).length;
+  // guru yang menjadi guru kelas lebih dari satu kelas
+  const kira = {}; D.guruKelas.forEach(g => { const t = gkEff(g); if (t != null) kira[t] = (kira[t] || 0) + 1; });
+
+  const rows = D.classes.map(c => {
+    const g = D.guruKelas.find(x => x.cls === c);
+    const cur = g ? gkEff(g) : null;
+    // guru yang mengajar kelas ini (semua subjek), untuk disenaraikan dahulu dalam pilihan
+    const ajar = new Map();
+    D.subjects.forEach(s => (IDX[s.code]?.[c] || []).forEach(a => { const t = eff(a); if (t != null && per(s, c)) ajar.set(t, (ajar.get(t) || 0) + per(s, c)); }));
+    const cells = subs.map(s => {
+      const x = stOf(s.code, c);
+      if (!x || x.kolaborasi || x.waktu < GK_MIN_WAKTU) return '<td class="faint">–</td>';
+      const ts = [...new Set((IDX[s.code]?.[c] || []).map(eff).filter(v => v != null))];
+      return `<td>${ts.length ? ts.map(t => `<span${t === cur ? ' style="font-weight:800;color:var(--brand)"' : ''}>${esc(nm(t))}</span>`).join('<br>') : '<span style="color:var(--bad)">kosong</span>'}</td>`;
+    }).join('');
+    const pilihan = () => {
+      const mengajar = [...ajar.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => T[t]).filter(Boolean);
+      const lain = D.teachersSorted.filter(t => t.aktif && !ajar.has(t.id));
+      const opt = t => `<option value="${t.id}"${t.id === cur ? ' selected' : ''}>${esc(t.name)}${kira[t.id] && t.id !== cur ? ' (GK ' + D.guruKelas.filter(x => gkEff(x) === t.id).map(x => shortCls(x.cls)).join(', ') + ')' : ''}</option>`;
+      return `<option value="">— Belum dipilih —</option>
+        ${mengajar.length ? `<optgroup label="Mengajar kelas ini">${mengajar.map(opt).join('')}</optgroup>` : ''}
+        <optgroup label="Guru lain">${lain.map(opt).join('')}${cur != null && !ajar.has(cur) && !lain.some(t => t.id === cur) ? opt(T[cur]) : ''}</optgroup>`;
+    };
+    const dua = cur != null && kira[cur] > 1;
+    return `<tr><td><b>${esc(c)}</b><div class="faint small">${esc(tahapNama(tahapOf(c)))}</div></td>${cells}
+      <td style="min-width:240px">${g ? `<select data-gk="${esc(c)}" class="${gkPending.has(c) ? 'chg' : ''} ${cur == null ? 'empty' : ''}" style="width:100%"${ed ? '' : ' disabled'}>${pilihan()}</select>
+        ${cur != null ? `<div class="small faint" style="margin-top:3px">${ajar.has(cur) ? `Mengajar ${ajar.get(cur)} waktu di kelas ini` : '<span style="color:var(--warn)">Tidak mengajar kelas ini</span>'} · beban ${L[cur]?.total || 0}w${dua ? ' · <span style="color:var(--bad)">guru kelas ' + kira[cur] + ' kelas</span>' : ''}</div>` : ''}` : '<span class="faint">—</span>'}</td></tr>`;
+  }).join('');
+
+  $('#main').innerHTML = `
+    <div class="card pad">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Guru Kelas</h2><div class="muted small">Guru yang mengajar subjek ${GK_MIN_WAKTU} waktu ke atas bagi setiap kelas. Pilih guru kelas di lajur terakhir — guru yang mengajar kelas itu disenaraikan dahulu.</div></div>
+        <div class="row"><span class="tag">${isi}/${D.guruKelas.length} kelas ada guru kelas</span><button class="btn" onclick="printGuruKelas()">Cetak</button></div>
+      </div>
+      ${ed ? '' : `<div class="ro-note">${locked() ? 'Versi ini dikunci — paparan sahaja.' : 'Paparan sahaja. Hanya admin boleh memilih guru kelas.'}</div>`}
+    </div>
+    <div class="card" style="margin-top:16px"><div class="tbl-wrap"><table class="t" id="gkTbl">
+      <thead><tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+  $$('[data-gk]').forEach(sel => sel.onchange = () => {
+    const g = D.guruKelas.find(x => x.cls === sel.dataset.gk); const v = toId(sel.value);
+    if (v === g.t) gkPending.delete(g.cls); else gkPending.set(g.cls, v);
+    renderGuruKelas(); updatePbar();
+  });
+}
+function printGuruKelas() {
+  const rows = D.classes.map((c, i) => { const g = D.guruKelas.find(x => x.cls === c); return `<tr><td>${i + 1}</td><td>${esc(c)}</td><td>${esc(g ? nm(gkEff(g)) : '') || '—'}</td></tr>`; }).join('');
+  printHTML('Senarai Guru Kelas', `<table><thead><tr><th style="width:6%">Bil</th><th style="width:25%">Kelas</th><th>Guru Kelas</th></tr></thead><tbody>${rows}</tbody></table>`);
+}
+
 function matrixHTML(interactive) {
   const subs = D.subjects.filter(s => D.classes.some(c => IDX[s.code]?.[c] && per(s, c)));
   const head = `<tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr>`;
