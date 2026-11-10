@@ -248,3 +248,9 @@ create table public.pengguna (
 -- =====================================================================
 -- allocations.subject_code -> subjects(code) on update cascade on delete restrict
 -- policy "admin padam subjects"; trigger subjek_induk_berubah: kemas kini pengguna.subjek bila kod ditukar/dipadam + log
+
+-- =====================================================================
+-- KEMAS KINI: peranan pentadbir (migration "peranan_pentadbir")
+-- =====================================================================
+-- pengguna.peranan in ('admin','pentadbir','ketua_panitia','guru')
+-- private.boleh_pilih_gk() = admin atau pentadbir — dasar "pentadbir ubah guru_kelas" & simpan_agihan(p_guru_kelas)

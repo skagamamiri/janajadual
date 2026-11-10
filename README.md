@@ -47,7 +47,7 @@ Menggantikan Google Sheet **AGIHAN JADUAL**. Guna projek Supabase berasingan, **
 - **Agihan**: pilih guru bagi setiap subjek × kelas; jumlah waktu guru dikira serta-merta.
 - **Beban Waktu Guru**: waktu seminggu setiap guru, tambah / tukar nama / nyahaktif guru, slip guru.
 - **Rumusan Kelas**: guru setiap kelas, guru kelas, matriks semua kelas.
-- **Guru Kelas**: grid semua kelas × guru subjek 4 waktu ke atas, dengan dropdown guru kelas di hujung (admin sahaja boleh pilih;
+- **Guru Kelas**: grid semua kelas × guru subjek 4 waktu ke atas, dengan dropdown guru kelas di hujung (hanya Pentadbir — dan admin — boleh pilih;
   guru yang mengajar kelas itu disenaraikan dahulu; amaran jika guru kelas tidak mengajar kelas itu atau memegang >1 kelas).
 - **Eksport & Cetak**: jam kredit, CSV aSc Timetables, cetakan.
 
@@ -56,6 +56,7 @@ Menggantikan Google Sheet **AGIHAN JADUAL**. Guna projek Supabase berasingan, **
 | Peranan | Boleh |
 |---|---|
 | **Admin** | Semua: agihan semua subjek, guru kelas, tambah/ubah guru, jam kredit, tetapan, urus pengguna, log |
+| **Pentadbir** | Pilih guru kelas (tab Guru Kelas); lihat semua |
 | **Ketua Panitia** | Ubah agihan bagi subjek panitia yang ditanda oleh admin; lihat yang lain |
 | **Guru** | Lihat sahaja (termasuk kad "Beban waktu anda" dan slip sendiri) |
 

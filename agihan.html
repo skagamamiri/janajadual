@@ -208,7 +208,7 @@ details.alt summary{cursor:pointer;color:var(--ink-2);font-size:13px;font-weight
 .sj label.on{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
 .sj input{display:none}
 .pill-r{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
-.pill-r.admin{background:var(--bad-soft);color:var(--bad)} .pill-r.ketua_panitia{background:var(--warn-soft);color:var(--warn)} .pill-r.guru{background:var(--surface-2);color:var(--ink-2)}
+.pill-r.admin{background:var(--bad-soft);color:var(--bad)} .pill-r.pentadbir{background:var(--brand-soft);color:var(--brand)} .pill-r.ketua_panitia{background:var(--warn-soft);color:var(--warn)} .pill-r.guru{background:var(--surface-2);color:var(--ink-2)}
 tr.off td{opacity:.5}
 #vbar{padding-top:14px}
 .tahap-wrap{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));align-items:start}
@@ -315,7 +315,7 @@ tr.off td{opacity:.5}
   <h3>Daftar pengguna secara pukal</h3>
   <div class="muted small">Tampal dari senarai DELIMa / Google Sheet: satu baris setiap pengguna, lajur dipisah Tab. Lajur yang mengandungi <b>@</b> dikira sebagai email; lajur pertama sebagai nama. Baris tajuk diabaikan. Email yang sudah berdaftar tidak diubah.</div>
   <textarea class="pre" id="bulkTxt" style="margin-top:10px" placeholder="ABDULLAH BIN MOHAMMAD	KPM-Guru	g-29295274@moe-dl.edu.my"></textarea>
-  <label class="field"><span>Peranan</span><select id="bulkRole"><option value="guru">Guru</option><option value="ketua_panitia">Ketua Panitia</option><option value="admin">Admin</option></select></label>
+  <label class="field"><span>Peranan</span><select id="bulkRole"><option value="guru">Guru</option><option value="ketua_panitia">Ketua Panitia</option><option value="pentadbir">Pentadbir</option><option value="admin">Admin</option></select></label>
   <div class="err" id="bulkErr"></div>
   <div class="row" style="justify-content:flex-end"><button class="btn" data-close>Batal</button><button class="btn pri" id="bulkOk">Daftar</button></div>
 </div></div>
@@ -345,7 +345,7 @@ tr.off td{opacity:.5}
 const SUPABASE_URL = 'https://upeohhckgenamwggajip.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwZW9oaGNrZ2VuYW13Z2dhamlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyMjg0ODIsImV4cCI6MjEwOTgwNDQ4Mn0.4aHGDElXA7FtkdFTebMapeeUe8AOG-OuktF9UAp6mbg';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const PERANAN = { admin: 'Admin', ketua_panitia: 'Ketua Panitia', guru: 'Guru' };
+const PERANAN = { admin: 'Admin', pentadbir: 'Pentadbir', ketua_panitia: 'Ketua Panitia', guru: 'Guru' };
 
 /* ============ UTIL ============ */
 const $ = (s, el = document) => el.querySelector(s);
@@ -381,9 +381,10 @@ const locked = () => !!cv()?.dikunci;
 
 const isAdmin = () => me?.peranan === 'admin';
 const isKP = () => me?.peranan === 'ketua_panitia';
+const isPentadbir = () => me?.peranan === 'pentadbir';
 const canEditSub = code => !locked() && (isAdmin() || (isKP() && (me.subjek || []).includes(code)));
-const canEditAny = () => !locked() && (isAdmin() || (isKP() && (me.subjek || []).length > 0));
-const canEditGK = () => !locked() && isAdmin();
+const canEditGK = () => !locked() && (isAdmin() || isPentadbir());
+const canEditAny = () => canEditGK() || (!locked() && isKP() && (me.subjek || []).length > 0);
 
 // Tahap: T1K = Tahap 1 (KP2027), T1 = Tahap 1, T2 = Tahap 2 (dari jadual tahap)
 const tahapOf = cls => D?.tahapTahun?.[parseInt(cls, 10)] || null;
@@ -585,7 +586,7 @@ function roNote(code) {
   if (canEditSub(code)) return '';
   if (locked()) return `<div class="ro-note">Versi ini dikunci — paparan sahaja.${isAdmin() ? ' Buka kunci di Admin → Versi.' : ''}</div>`;
   if (isKP()) return `<div class="ro-note">Anda Ketua Panitia ${esc((me.subjek || []).join(', ') || '(belum ditetapkan)')}. Subjek ini hanya boleh dilihat.</div>`;
-  if (!isAdmin()) return `<div class="ro-note">Paparan sahaja. Perubahan agihan dibuat oleh Ketua Panitia dan admin.</div>`;
+  if (!isAdmin()) return `<div class="ro-note">Paparan sahaja. Perubahan agihan dibuat oleh Ketua Panitia dan admin.${isPentadbir() ? ' Anda boleh memilih guru kelas di tab Guru Kelas.' : ''}</div>`;
   return '';
 }
 function teacherOptions(cur) {
@@ -840,7 +841,7 @@ function renderGuruKelas() {
         <div><h2>Guru Kelas</h2><div class="muted small">Guru yang mengajar subjek ${GK_MIN_WAKTU} waktu ke atas bagi setiap kelas. Pilih guru kelas di lajur terakhir — guru yang mengajar kelas itu disenaraikan dahulu.</div></div>
         <div class="row"><span class="tag">${isi}/${D.guruKelas.length} kelas ada guru kelas</span><button class="btn" onclick="printGuruKelas()">Cetak</button></div>
       </div>
-      ${ed ? '' : `<div class="ro-note">${locked() ? 'Versi ini dikunci — paparan sahaja.' : 'Paparan sahaja. Hanya admin boleh memilih guru kelas.'}</div>`}
+      ${ed ? '' : `<div class="ro-note">${locked() ? 'Versi ini dikunci — paparan sahaja.' : 'Paparan sahaja. Hanya Pentadbir boleh memilih guru kelas.'}</div>`}
     </div>
     <div class="card" style="margin-top:16px"><div class="tbl-wrap"><table class="t" id="gkTbl">
       <thead><tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr></thead>
@@ -1321,7 +1322,7 @@ function admPengguna() {
     <div class="stats" style="margin-top:0">
       <div class="card stat"><div class="k">Pengguna</div><div class="v">${PG.users.length}</div></div>
       <div class="card stat"><div class="k">Admin</div><div class="v" style="color:var(--bad)">${cnt('admin')}</div></div>
-      <div class="card stat"><div class="k">Ketua Panitia</div><div class="v" style="color:var(--warn)">${cnt('ketua_panitia')}</div></div>
+      <div class="card stat"><div class="k">Pentadbir / KP</div><div class="v" style="color:var(--warn)">${cnt('pentadbir')} / ${cnt('ketua_panitia')}</div></div>
       <div class="card stat"><div class="k">Guru</div><div class="v">${cnt('guru')}</div></div>
     </div>
     <div class="card">
@@ -1333,6 +1334,7 @@ function admPengguna() {
       </div>
       <div class="pad small muted" style="border-bottom:1px solid var(--line)">
         <span class="pill-r admin">Admin</span> urus semua termasuk pengguna &amp; jam kredit ·
+        <span class="pill-r pentadbir">Pentadbir</span> pilih guru kelas ·
         <span class="pill-r ketua_panitia">Ketua Panitia</span> ubah agihan subjek panitia yang ditanda ·
         <span class="pill-r guru">Guru</span> lihat sahaja. Perubahan di sini disimpan serta-merta.
       </div>
