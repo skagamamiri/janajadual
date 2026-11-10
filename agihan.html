@@ -191,6 +191,9 @@ select:disabled{opacity:1;color:var(--ink);background:var(--surface-2);cursor:de
 .modal .box.wide{max-width:620px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:6px}
 .chip.mine{border-color:var(--brand);color:var(--brand)}
+.chip.mine.on{color:#fff}
+:root[data-theme="dark"] .chip.mine.on{color:#06140e}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip.mine.on{color:#06140e}}
 .chip .pen{font-size:11px}
 .gate{max-width:420px;margin:8vh auto 0;text-align:center}
 .gate .card{padding:28px 24px}
