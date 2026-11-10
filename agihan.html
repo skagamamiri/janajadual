@@ -211,6 +211,12 @@ details.alt summary{cursor:pointer;color:var(--ink-2);font-size:13px;font-weight
 .pill-r.admin{background:var(--bad-soft);color:var(--bad)} .pill-r.ketua_panitia{background:var(--warn-soft);color:var(--warn)} .pill-r.guru{background:var(--surface-2);color:var(--ink-2)}
 tr.off td{opacity:.5}
 #vbar{padding-top:14px}
+.tahap-wrap{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));align-items:start}
+.tahap h3{flex-wrap:wrap;gap:4px}
+.st-tbl input[type=number]{width:72px;min-height:32px;padding:4px 8px}
+.st-tbl td{vertical-align:middle}
+.st-tbl tr.baru td{background:var(--ok-soft)} .st-tbl tr.ubah td{background:var(--chg)}
+.st-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;align-items:start}
 .vb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
 .vb select{min-height:34px;padding:4px 10px;font-weight:700;max-width:100%}
 .vtag{font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px;white-space:nowrap}
@@ -378,8 +384,12 @@ const canEditSub = code => !locked() && (isAdmin() || (isKP() && (me.subjek || [
 const canEditAny = () => !locked() && (isAdmin() || (isKP() && (me.subjek || []).length > 0));
 const canEditGK = () => !locked() && isAdmin();
 
-const tahapOf = cls => (parseInt(cls, 10) <= 3 ? 1 : 2);
-const per = (s, cls) => s.perRow ? s.perRow : (tahapOf(cls) === 1 ? (s.t1 || 0) : (s.t2 || 0));
+// Tahap: T1K = Tahap 1 (KP2027), T1 = Tahap 1, T2 = Tahap 2 (dari jadual tahap)
+const tahapOf = cls => D?.tahapTahun?.[parseInt(cls, 10)] || null;
+const tahapNama = kod => D?.tahap.find(t => t.kod === kod)?.nama || kod;
+const stOf = (code, cls) => D?.st?.[tahapOf(cls)]?.[code] || null;                // {waktu, bil_slot, kolaborasi}
+const per = (s, cls) => { const x = stOf(s.code, cls); return x ? x.waktu / x.bil_slot : 0; };   // waktu bagi SATU slot
+const waktuKelas = (s, cls) => stOf(s.code, cls)?.waktu || 0;                    // waktu seminggu subjek bagi kelas
 const eff = a => pending.has(a.id) ? pending.get(a.id) : a.t;
 const gkEff = g => gkPending.has(g.cls) ? gkPending.get(g.cls) : g.t;
 const nm = id => (id != null && T[id]) ? T[id].name : '';
@@ -474,17 +484,19 @@ async function load() {
       const saved = +store.get('agihan.versi', 0);
       curVersi = (VERSI.find(v => v.id === saved) || VERSI.find(v => v.aktif) || VERSI[0])?.id ?? null;
     }
-    const [settings, teachers, subjects, classes, allocations, gk] = await Promise.all([
+    const [settings, teachers, subjects, classes, allocations, gk, tahap, st] = await Promise.all([
       q(sb.from('settings').select('key,value')),
       q(sb.from('teachers').select('id,name,bil,aktif').order('bil', { nullsFirst: false }).order('name')),
       q(sb.from('subjects').select('*').order('sort')),
       q(sb.from('classes').select('name,tahun,sort').order('sort')),
       q(sb.from('allocations').select('id,subject_code,class_name,slot,teacher_id').eq('versi_id', curVersi).order('id').range(0, 4999)),
-      q(sb.from('guru_kelas').select('class_name,teacher_id').eq('versi_id', curVersi))
+      q(sb.from('guru_kelas').select('class_name,teacher_id').eq('versi_id', curVersi)),
+      q(sb.from('tahap').select('kod,nama,tahun,sort').order('sort')),
+      q(sb.from('subjek_tahap').select('tahap_kod,subject_code,waktu,bil_slot,kolaborasi').eq('versi_id', curVersi))
     ]);
     const gkMap = Object.fromEntries(gk.map(g => [g.class_name, g.teacher_id]));
     classes.forEach(c => c.guru_kelas_id = gkMap[c.name] ?? null);
-    init({ settings, teachers, subjects, classes, allocations });
+    init({ settings, teachers, subjects, classes, allocations, tahap, st });
   } catch (e) {
     $('#main').innerHTML = `<div class="center"><div class="card pad" style="max-width:520px">
       <h2>Tidak dapat memuatkan data</h2><p class="muted small">${esc(fail(e))}</p>
@@ -497,7 +509,10 @@ function init(r) {
   D = {
     settings,
     teachers: r.teachers,
-    subjects: r.subjects.map(s => ({ code: s.code, title: s.title, name: s.name, t1: +s.waktu_t1, t2: +s.waktu_t2, perRow: s.per_slot == null ? null : +s.per_slot, parts: s.parts })),
+    subjects: r.subjects.map(s => ({ code: s.code, title: s.title, name: s.name, sort: s.sort, parts: s.parts })),
+    tahap: r.tahap,
+    tahapTahun: Object.fromEntries(r.tahap.flatMap(t => (t.tahun || []).map(y => [y, t.kod]))),
+    st: r.st.reduce((o, x) => { (o[x.tahap_kod] ||= {})[x.subject_code] = { waktu: +x.waktu, bil_slot: +x.bil_slot, kolaborasi: !!x.kolaborasi }; return o; }, {}),
     classes: r.classes.map(c => c.name),
     guruKelas: r.classes.map(c => ({ cls: c.name, t: c.guru_kelas_id })),
     allocations: r.allocations.map(a => ({ id: a.id, s: a.subject_code, cls: a.class_name, slot: a.slot, t: a.teacher_id }))
@@ -508,7 +523,7 @@ function init(r) {
   D.teachersSorted = [...D.teachers].sort((a, b) => a.name.localeCompare(b.name, 'ms'));
   D.allocations.forEach(a => { byId[a.id] = a; ((IDX[a.s] ||= {})[a.cls] ||= []).push(a); });
   Object.values(IDX).forEach(m => Object.values(m).forEach(arr => arr.sort((x, y) => x.slot - y.slot)));
-  pending.clear(); gkPending.clear();
+  pending.clear(); gkPending.clear(); SD = null;
   if (!curSub || !S[curSub]) curSub = (isKP() && me.subjek.find(c => S[c])) || D.subjects[0]?.code;
   if (!curCls || !D.classes.includes(curCls)) curCls = D.classes[0];
   if (me?.teacher_id && bebanOpen.size === 0) bebanOpen.add(me.teacher_id);
@@ -590,13 +605,11 @@ function renderAgihan() {
     return `<button class="chip${x.code === curSub ? ' on' : ''}${mine ? ' mine' : ''}" data-sub="${x.code}" title="${esc(x.title)}${mine ? ' — panitia anda' : ''}">${mine ? '<span class="pen">✎</span>' : ''}${esc(x.code)}${e ? '<span class="dot" title="' + e + ' slot kosong"></span>' : ''}</button>`;
   }).join('');
 
-  const cols = [1, 2].map(tp => {
-    const classes = D.classes.filter(c => tahapOf(c) === tp && IDX[curSub]?.[c]);
-    const p = s.perRow ? null : (tp === 1 ? s.t1 : s.t2);
-    if (!s.perRow && !p) {
-      const filled = classes.some(c => IDX[curSub][c].some(a => eff(a) != null));
-      if (!filled) return `<div class="card tahap"><h3>Tahap ${tp}</h3><div class="pad note">Subjek ini tiada waktu untuk Tahap ${tp}.</div></div>`;
-    }
+  const cols = D.tahap.map(tp => {
+    const x = D.st[tp.kod]?.[curSub];
+    const head = `<h3><span>${esc(tp.nama)} <span class="faint small" style="font-weight:500">· Tahun ${(tp.tahun || []).join(', ')}</span></span>`;
+    if (!x) return `<div class="card tahap">${head}</h3><div class="pad note">Subjek ini tidak didaftarkan untuk ${esc(tp.nama)}.${isAdmin() ? ' Daftar di Admin → Mata Pelajaran.' : ''}</div></div>`;
+    const classes = D.classes.filter(c => tahapOf(c) === tp.kod && IDX[curSub]?.[c]);
     const rows = classes.map(c => {
       const arr = IDX[curSub][c];
       const slots = arr.map(a => {
@@ -605,10 +618,9 @@ function renderAgihan() {
           <select data-id="${a.id}" class="${pending.has(a.id) ? 'chg' : ''} ${v != null ? '' : 'empty'}" aria-label="Guru ${esc(c)}"${dis}>${teacherOptions(v)}</select>
           <span class="ld ${v != null ? lvl(L[v]?.total || 0) : ''}" title="Jumlah waktu guru ini seminggu">${v != null ? (L[v]?.total || 0) : '–'}</span></div>`;
       }).join('');
-      const pp = per(s, c) * (s.perRow ? arr.length : 1);
-      return `<div class="crow"><div class="cls">${esc(c)}<small>${pp} waktu/mgg</small></div><div>${slots}</div></div>`;
+      return `<div class="crow"><div class="cls">${esc(c)}<small>${x.waktu} waktu/mgg</small></div><div>${slots}</div></div>`;
     }).join('');
-    return `<div class="card tahap"><h3>Tahap ${tp} <span class="faint small">${s.perRow ? s.perRow + ' waktu setiap slot' : p + ' waktu/kelas'}</span></h3>${rows || '<div class="pad muted">Tiada kelas</div>'}</div>`;
+    return `<div class="card tahap">${head}<span class="faint small">${x.waktu} waktu${x.bil_slot > 1 ? ` · ${x.bil_slot} guru × ${+(x.waktu / x.bil_slot).toFixed(2)}` : ''}${x.kolaborasi ? ' · kolaborasi' : ''}</span></h3>${rows || '<div class="pad muted">Tiada kelas</div>'}</div>`;
   }).join('');
 
   $('#main').innerHTML = `
@@ -751,12 +763,11 @@ function renderKelas() {
   const g = D.guruKelas.find(x => x.cls === curCls);
   let tot = 0;
   const cards = D.subjects.filter(s => IDX[s.code]?.[curCls]).map(s => {
-    const arr = IDX[s.code][curCls];
-    const p = s.perRow ? s.perRow * arr.length : per(s, curCls);
-    if (!p) return '';
-    tot += p;
+    const x = stOf(s.code, curCls); if (!x || !x.waktu) return '';
+    const p = x.waktu;
+    if (!x.kolaborasi) tot += p;
     const ts = classTeachers(s.code, curCls);
-    return `<div class="subj-card"><div class="h"><span>${esc(s.name)}</span><span>${p} w</span></div>
+    return `<div class="subj-card"><div class="h"><span>${esc(s.name)}${x.kolaborasi ? ' <span style="text-transform:none;font-weight:500">(kolaborasi)</span>' : ''}</span><span>${p} w</span></div>
       <div class="g ${ts.length ? '' : 'none'}">${ts.length ? ts.map(esc).join('<br>') : 'Belum diisi'}</div></div>`;
   }).join('');
 
@@ -767,7 +778,7 @@ function renderKelas() {
     </div></div>
     <div class="card pad" style="margin-top:16px">
       <div class="row" style="justify-content:space-between;margin-bottom:12px">
-        <div><h2>${esc(curCls)}</h2><div class="muted small">Tahap ${tahapOf(curCls)} · ${tot} waktu seminggu (subjek yang diagih)</div></div>
+        <div><h2>${esc(curCls)}</h2><div class="muted small">${esc(tahapNama(tahapOf(curCls)))} · ${tot} waktu seminggu (tidak termasuk kolaborasi)</div></div>
         ${g ? `<label class="row small" style="gap:8px"><b>Guru Kelas</b>
           <select id="gkSel" class="${gkPending.has(g.cls) ? 'chg' : ''}" style="max-width:280px"${canEditGK() ? '' : ' disabled'}>${teacherOptions(gkEff(g))}</select></label>` : ''}
       </div>
@@ -786,12 +797,12 @@ function renderKelas() {
   };
 }
 function matrixHTML(interactive) {
-  const subs = D.subjects.filter(s => D.classes.some(c => IDX[s.code]?.[c] && (s.perRow || per(s, c))));
+  const subs = D.subjects.filter(s => D.classes.some(c => IDX[s.code]?.[c] && per(s, c)));
   const head = `<tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr>`;
   const body = D.classes.map(c => {
     const g = D.guruKelas.find(x => x.cls === c);
     return `<tr${interactive ? ` class="clk" data-c="${esc(c)}"` : ''}><td><b>${esc(c)}</b></td>${subs.map(s => {
-      const ts = (s.perRow || per(s, c)) ? classTeachers(s.code, c) : null;
+      const ts = per(s, c) ? classTeachers(s.code, c) : null;
       return `<td>${ts === null ? '<span class="faint">–</span>' : ts.length ? ts.map(esc).join('<br>') : '<span style="color:var(--bad)">kosong</span>'}</td>`;
     }).join('')}<td>${g ? esc(nm(gkEff(g))) : ''}</td></tr>`;
   }).join('');
@@ -801,48 +812,53 @@ function matrixHTML(interactive) {
 /* ---------- EKSPORT ---------- */
 function ascDefaults() {
   const rows = [];
-  const add = (name, code, c1, c2, extra = {}) => rows.push({ name, code, c1, c2, on: true, ...extra });
   const nmA = { BM: 'Bahasa Melayu', BI: 'Bahasa Inggeris', MT: 'Matematik', SN: 'Sains', PSV: 'Pendidikan Seni Visual', PSM: 'Pendidikan Muzik', SEJ: 'Sejarah', RBT: 'Reka Bentuk dan Teknologi', BA: 'Bahasa Arab', PIQK: 'PI (Quran) Kolaborasi', TSK: 'Tasmik Kolaborasi' };
+  const byT = fn => Object.fromEntries(D.tahap.map(t => [t.kod, fn(t.kod, D.st[t.kod] || {})]));
+  const add = (name, code, c, extra = {}) => rows.push({ name, code, c, on: true, ...extra });
   for (const s of D.subjects) {
+    if (!D.tahap.some(t => D.st[t.kod]?.[s.code])) continue;
+    const w = k => D.st[k]?.[s.code]?.waktu || 0;
     if (s.code === 'PJPK') {
-      add('Pendidikan Jasmani', 'PJPK', Math.ceil(s.t1 * 2 / 3), Math.ceil(s.t2 * 2 / 3));
-      add('Pendidikan Kesihatan', 'PJPK', s.t1 - Math.ceil(s.t1 * 2 / 3), s.t2 - Math.ceil(s.t2 * 2 / 3));
-    } else if (s.code === 'PI' && s.parts) {
-      add('Pendidikan Islam', 'PI', s.parts.t1.PI, s.parts.t2.PI);
-      add('Tasmik', 'PI', s.parts.t1.TASMIK, s.parts.t2.TASMIK);
-    } else if (s.perRow) {
-      add(nmA[s.code] || s.name, s.code, null, null, { perRow: true });
+      add('Pendidikan Jasmani', 'PJPK', byT(k => w(k) - Math.round(w(k) / 3)));
+      add('Pendidikan Kesihatan', 'PJPK', byT(k => Math.round(w(k) / 3)));
+    } else if (s.code === 'PI') {
+      const tas = k => Math.min(w(k), (k === 'T2' ? s.parts?.t2?.TASMIK : s.parts?.t1?.TASMIK) ?? 2);
+      add('Pendidikan Islam', 'PI', byT(k => w(k) - tas(k)));
+      add('Tasmik', 'PI', byT(k => tas(k)));
+    } else if (D.tahap.some(t => D.st[t.kod]?.[s.code]?.kolaborasi)) {
+      add(nmA[s.code] || s.name, s.code, {}, { perRow: true });
     } else {
-      add(nmA[s.code] || s.name, s.code, s.t1 || 0, s.t2 || 0);
+      add(nmA[s.code] || s.name, s.code, byT(k => w(k)));
     }
   }
-  add('SOP/YASSIN', 'GK', 1, 1, { gk: true });
+  add('SOP/YASSIN', 'GK', byT(() => 1), { gk: true });
   return rows;
 }
 function ascConfig() {
   let saved = {};
-  try { saved = JSON.parse(store.get('agihan.asc', '{}')) || {}; } catch (e) {}
-  return ascDefaults().map(r => ({ ...r, ...(saved[r.name] || {}) }));
+  try { saved = JSON.parse(store.get('agihan.asc3', '{}')) || {}; } catch (e) {}
+  return ascDefaults().map(r => saved[r.name] ? { ...r, on: saved[r.name].on, c: { ...r.c, ...(saved[r.name].c || {}) } } : r);
 }
 function ascSave(rows) {
-  const o = {}; rows.forEach(r => o[r.name] = { c1: r.c1, c2: r.c2, on: r.on });
-  store.set('agihan.asc', JSON.stringify(o));
+  const o = {}; rows.forEach(r => o[r.name] = { c: r.c, on: r.on });
+  store.set('agihan.asc3', JSON.stringify(o));
 }
 function ascRows() {
   const out = []; let skipped = 0;
   for (const r of ascConfig()) {
     if (!r.on) continue;
     if (r.gk) {
-      D.guruKelas.forEach(g => { const t = gkEff(g); const c = tahapOf(g.cls) === 1 ? r.c1 : r.c2; if (t != null && c > 0) out.push([r.name, g.cls, nm(t), c, 1]); else if (c > 0) skipped++; });
+      D.guruKelas.forEach(g => { const t = gkEff(g); const c = r.c[tahapOf(g.cls)] || 0; if (t != null && c > 0) out.push([r.name, g.cls, nm(t), c, 1]); else if (c > 0) skipped++; });
       continue;
     }
     for (const cls of D.classes) {
       const arr = IDX[r.code]?.[cls]; if (!arr) continue;
       if (r.perRow) {
-        const m = {}; arr.forEach(a => { const t = eff(a); if (t != null) m[t] = (m[t] || 0) + S[r.code].perRow; else skipped++; });
+        const p = per(S[r.code], cls); if (!p) continue;
+        const m = {}; arr.forEach(a => { const t = eff(a); if (t != null) m[t] = (m[t] || 0) + p; else skipped++; });
         Object.entries(m).forEach(([t, c]) => out.push([r.name, cls, nm(+t), c, 1]));
       } else {
-        const c = tahapOf(cls) === 1 ? r.c1 : r.c2; if (!(c > 0)) continue;
+        const c = r.c[tahapOf(cls)] || 0; if (!(c > 0)) continue;
         const ts = classTeachers(r.code, cls);
         if (!ts.length) { skipped++; continue; }
         out.push([r.name, cls, ts.join(', '), c, 1]);
@@ -858,28 +874,17 @@ function toDelim(rows, sep) {
 function renderEksport() {
   const cfgRows = ascConfig();
   const { out, skipped } = ascRows();
-  const ed = isAdmin();
-  const jk = D.subjects.filter(s => !s.perRow).map(s => `<tr><td><b>${esc(s.code)}</b></td><td>${esc(s.name)}</td>
-    <td class="num">${ed ? `<input type="number" min="0" step="0.5" style="width:70px" data-jk="${s.code}" data-k="t1" value="${s.t1}">` : s.t1}</td>
-    <td class="num">${ed ? `<input type="number" min="0" step="0.5" style="width:70px" data-jk="${s.code}" data-k="t2" value="${s.t2}">` : s.t2}</td></tr>`).join('');
   $('#main').innerHTML = `
     <div class="card pad">
-      <h2>Jam kredit (waktu seminggu bagi setiap kelas)</h2>
-      <div class="muted small">Asas pengiraan beban guru. Kolaborasi PI (Quran) dan Tasmik dikira ${S.PIQK?.perRow || 1} waktu bagi setiap slot.${ed ? '' : ' Hanya admin boleh mengubah.'}</div>
-      <div class="tbl-wrap" style="margin-top:12px"><table class="t"><thead><tr><th>Kod</th><th>Subjek</th><th class="num">Tahap 1</th><th class="num">Tahap 2</th></tr></thead><tbody>${jk}</tbody></table></div>
-      ${ed ? '<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" id="jkSave">Simpan jam kredit</button></div>' : ''}
-    </div>
-    <div class="card pad" style="margin-top:16px">
       <h2>Eksport untuk aSc Timetables</h2>
-      <div class="muted small">Format: Subject, Class, Teacher, Count, Length. Bilangan waktu boleh dilaraskan di bawah (disimpan dalam pelayar ini).</div>
+      <div class="muted small">Format: Subject, Class, Teacher, Count, Length. Bilangan waktu diambil dari senarai mata pelajaran setiap tahap${isAdmin() ? ' (Admin → Mata Pelajaran)' : ''}; boleh dilaraskan di bawah untuk eksport sahaja (disimpan dalam pelayar ini).</div>
       <div class="tbl-wrap" style="margin-top:12px"><table class="t" id="ascCfg">
-        <thead><tr><th></th><th>Subjek (nama dalam aSc)</th><th>Sumber</th><th class="num">Tahap 1</th><th class="num">Tahap 2</th></tr></thead>
+        <thead><tr><th></th><th>Subjek (nama dalam aSc)</th><th>Sumber</th>${D.tahap.map(t => `<th class="num">${esc(t.nama)}</th>`).join('')}</tr></thead>
         <tbody>${cfgRows.map((r, i) => `<tr>
           <td><input type="checkbox" data-i="${i}" data-k="on" ${r.on ? 'checked' : ''}></td>
           <td>${esc(r.name)}</td><td class="faint small">${r.gk ? 'Guru Kelas' : esc(r.code)}</td>
-          ${r.perRow ? '<td class="num faint small" colspan="2">ikut bilangan slot</td>' :
-          `<td class="num"><input type="number" min="0" style="width:70px" data-i="${i}" data-k="c1" value="${r.c1}"></td>
-           <td class="num"><input type="number" min="0" style="width:70px" data-i="${i}" data-k="c2" value="${r.c2}"></td>`}
+          ${r.perRow ? `<td class="num faint small" colspan="${D.tahap.length}">ikut bilangan slot guru</td>` :
+            D.tahap.map(t => `<td class="num"><input type="number" min="0" style="width:70px" data-i="${i}" data-t="${t.kod}" value="${r.c[t.kod] ?? 0}"></td>`).join('')}
         </tr>`).join('')}</tbody></table></div>
       <div class="row" style="margin-top:12px">
         <select id="sep"><option value=",">CSV (koma)</option><option value=";">CSV (titik koma)</option></select>
@@ -901,30 +906,19 @@ function renderEksport() {
     </div>`;
   $$('#ascCfg input').forEach(inp => inp.onchange = () => {
     const rows = ascConfig(); const r = rows[+inp.dataset.i];
-    if (inp.dataset.k === 'on') r.on = inp.checked; else r[inp.dataset.k] = Math.max(0, +inp.value || 0);
+    if (inp.dataset.k === 'on') r.on = inp.checked; else r.c[inp.dataset.t] = Math.max(0, +inp.value || 0);
     ascSave(rows); renderEksport();
   });
-  $('#ascReset').onclick = () => { store.del('agihan.asc'); renderEksport(); };
+  $('#ascReset').onclick = () => { store.del('agihan.asc3'); renderEksport(); };
   $('#dlCsv').onclick = () => {
     const blob = new Blob(['﻿' + toDelim(ascRows().out, $('#sep').value)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `asc-import-${D.settings.sesi || 'agihan'}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    a.download = `asc-import-${(cv()?.nama || D.settings.sesi || 'agihan').replace(/\s+/g, '-')}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
   $('#cpTab').onclick = async () => {
     try { await navigator.clipboard.writeText(toDelim(ascRows().out, '\t')); toast('Disalin. Tampal dalam aSc: Import > Lessons.'); }
     catch (e) { toast('Gagal menyalin — guna muat turun CSV.'); }
   };
-  if ($('#jkSave')) $('#jkSave').onclick = saveJamKredit;
-}
-async function saveJamKredit() {
-  const ch = {};
-  $$('[data-jk]').forEach(i => { const s = S[i.dataset.jk]; const v = Math.max(0, +i.value || 0); if (v !== s[i.dataset.k]) (ch[s.code] ||= {})[i.dataset.k === 't1' ? 'waktu_t1' : 'waktu_t2'] = v; });
-  const codes = Object.keys(ch);
-  if (!codes.length) return toast('Tiada perubahan');
-  try {
-    for (const c of codes) { const r = await q(sb.from('subjects').update(ch[c]).eq('code', c).select('code')); if (!r.length) throw new Error('Tiada kebenaran'); }
-    toast('Jam kredit disimpan'); await reloadKeepPending();
-  } catch (e) { msg('Gagal menyimpan', esc(fail(e))); }
 }
 
 /* ---------- ADMIN: Versi, Pengguna, Log ---------- */
@@ -939,18 +933,15 @@ async function renderPengguna(force) {
         q(sb.from('allocations').select('versi_id,teacher_id,subject_code,class_name').range(0, 49999))
       ]);
       const vstat = {};
-      alloc.forEach(a => {
-        const s = S[a.subject_code]; if (!s || !per(s, a.class_name)) return;   // slot tanpa waktu (cth. SEJ Tahap 1) tidak dikira
-        const o = (vstat[a.versi_id] ||= { slot: 0, isi: 0 }); o.slot++; if (a.teacher_id != null) o.isi++;
-      });
+      alloc.forEach(a => { const o = (vstat[a.versi_id] ||= { slot: 0, isi: 0 }); o.slot++; if (a.teacher_id != null) o.isi++; });
       PG = { users, logs, vstat };
     } catch (e) { $('#main').innerHTML = `<div class="card pad err">${esc(fail(e))}</div>`; return; }
     if (view !== 'pengguna') return;
   }
-  const subs = [['versi', 'Versi agihan'], ['pengguna', 'Pengguna & peranan'], ['log', 'Log perubahan']];
+  const subs = [['versi', 'Versi agihan'], ['subjek', 'Mata pelajaran'], ['pengguna', 'Pengguna & peranan'], ['log', 'Log perubahan']];
   $('#main').innerHTML = `<div class="subnav">${subs.map(([k, v]) => `<button class="chip${adminSub === k ? ' on' : ''}" data-adm="${k}">${v}</button>`).join('')}</div><div id="adm"></div>`;
-  $$('[data-adm]').forEach(b => b.onclick = () => { adminSub = b.dataset.adm; renderPengguna(); });
-  ({ versi: admVersi, pengguna: admPengguna, log: admLog })[adminSub]();
+  $$('[data-adm]').forEach(b => b.onclick = () => { if (adminSub === 'subjek' && SD && stDiff().n && !confirm('Perubahan mata pelajaran belum disimpan akan hilang. Teruskan?')) return; adminSub = b.dataset.adm; renderPengguna(); });
+  ({ versi: admVersi, subjek: admSubjek, pengguna: admPengguna, log: admLog })[adminSub]();
 }
 
 function admLog() {
@@ -1049,6 +1040,138 @@ $('#vOk').onclick = async () => {
   } catch (e) { $('#vErr').textContent = fail(e); }
   finally { btn.disabled = false; btn.textContent = 'Cipta versi'; }
 };
+
+/* ---------- ADMIN: Mata pelajaran mengikut tahap ---------- */
+let SD = null;   // draf senarai subjek tahap {tahapKod: {code: {waktu, bil_slot, kolaborasi}}}
+const stClone = o => JSON.parse(JSON.stringify(o || {}));
+function stDiff() {
+  const ins = [], upd = [], del = [];
+  for (const t of D.tahap) {
+    const a = D.st[t.kod] || {}, b = SD[t.kod] || {};
+    for (const [c, x] of Object.entries(b)) {
+      if (!a[c]) ins.push({ t: t.kod, c, x });
+      else if (a[c].waktu !== x.waktu || a[c].bil_slot !== x.bil_slot || a[c].kolaborasi !== x.kolaborasi) upd.push({ t: t.kod, c, x });
+    }
+    for (const c of Object.keys(a)) if (!b[c]) del.push({ t: t.kod, c });
+  }
+  return { ins, upd, del, n: ins.length + upd.length + del.length };
+}
+function admSubjek() {
+  if (!SD) SD = stClone(D.st);
+  const ro = locked();
+  const dis = ro ? ' disabled' : '';
+  const order = Object.fromEntries(D.subjects.map((s, i) => [s.code, i]));
+  const diff = stDiff();
+  const cards = D.tahap.map(t => {
+    const L = SD[t.kod] || {}, A = D.st[t.kod] || {};
+    const codes = Object.keys(L).sort((a, b) => (order[a] ?? 99) - (order[b] ?? 99));
+    const tot = codes.reduce((n, c) => n + (L[c].kolaborasi ? 0 : L[c].waktu), 0);
+    const avail = D.subjects.filter(s => !L[s.code]);
+    const kls = D.classes.filter(c => tahapOf(c) === t.kod).length;
+    return `<div class="card">
+      <div class="pad" style="border-bottom:1px solid var(--line)"><h2 style="margin:0">${esc(t.nama)}</h2>
+        <div class="muted small">Tahun ${(t.tahun || []).join(', ')} · ${kls} kelas · <b>${tot}</b> waktu seminggu setiap kelas (tidak termasuk kolaborasi)</div></div>
+      <div class="tbl-wrap"><table class="t st-tbl">
+        <thead><tr><th>Subjek</th><th class="num">Waktu</th><th class="num" title="Bilangan guru / slot bagi setiap kelas">Guru</th><th title="Kolaborasi: tidak dikira dalam jumlah waktu kelas">Kolab.</th><th></th></tr></thead>
+        <tbody>${codes.map(c => { const x = L[c], o = A[c]; const cls = !o ? 'baru' : (o.waktu !== x.waktu || o.bil_slot !== x.bil_slot || o.kolaborasi !== x.kolaborasi) ? 'ubah' : '';
+          return `<tr class="${cls}"><td><b>${esc(c)}</b><div class="faint small">${esc(S[c]?.name || '')}</div></td>
+            <td class="num"><input type="number" min="0" step="0.5" value="${x.waktu}" data-st="${t.kod}|${c}" data-f="waktu"${dis}></td>
+            <td class="num"><input type="number" min="1" max="10" step="1" value="${x.bil_slot}" data-st="${t.kod}|${c}" data-f="bil_slot" style="width:56px"${dis}></td>
+            <td style="text-align:center"><input type="checkbox" ${x.kolaborasi ? 'checked' : ''} data-st="${t.kod}|${c}" data-f="kolaborasi"${dis}></td>
+            <td>${ro ? '' : `<button class="btn ghost" data-stdel="${t.kod}|${c}" title="Buang dari ${esc(t.nama)}">✕</button>`}</td></tr>`; }).join('') || `<tr><td colspan="5" class="muted">Tiada subjek.</td></tr>`}
+        </tbody></table></div>
+      ${ro ? '' : `<div class="pad row" style="border-top:1px solid var(--line)">
+        <select data-stadd-sel="${t.kod}" class="grow" style="min-width:150px">${avail.map(s => `<option value="${s.code}">${esc(s.code)} — ${esc(s.name)}</option>`).join('') || '<option value="">(semua subjek sudah ada)</option>'}</select>
+        <button class="btn" data-stadd="${t.kod}"${avail.length ? '' : ' disabled'}>+ Tambah</button>
+        <select data-stcp-sel="${t.kod}" title="Salin senarai dari tahap lain">${D.tahap.filter(x => x.kod !== t.kod).map(x => `<option value="${x.kod}">Salin dari ${esc(x.nama)}</option>`).join('')}</select>
+        <button class="btn ghost" data-stcp="${t.kod}">Salin</button>
+      </div>`}
+    </div>`;
+  }).join('');
+
+  $('#adm').innerHTML = `
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Mata pelajaran setiap tahap</h2>
+          <div class="muted small">Bagi versi <b>${esc(cv()?.nama || '')}</b>. Peruntukan waktu sama bagi semua kelas dalam satu tahap. <b>Guru</b> = bilangan guru (slot) bagi setiap kelas — waktu dibahagi sama rata antara mereka (cth. PI Quran kolaborasi 3 waktu, 3 guru = 1 waktu seorang).</div></div>
+        ${ro ? '' : `<div class="row"><button class="btn" id="stUndo"${diff.n ? '' : ' disabled'}>Batal</button><button class="btn pri" id="stSave"${diff.n ? '' : ' disabled'}>Simpan${diff.n ? ` (${diff.n})` : ''}</button></div>`}
+      </div>
+      ${ro ? `<div class="ro-note">Versi ini dikunci. Buka kunci di Admin → Versi untuk mengubah mata pelajaran.</div>` : ''}
+    </div>
+    <div class="st-grid">${cards}</div>
+    <div class="card" style="margin-top:16px">
+      <div class="pad" style="border-bottom:1px solid var(--line)"><h2 style="margin:0">Senarai induk mata pelajaran</h2>
+        <div class="muted small">Semua mata pelajaran yang boleh didaftarkan ke mana-mana tahap. Perubahan nama disimpan serta-merta.</div></div>
+      <div class="tbl-wrap"><table class="t pg-tbl">
+        <thead><tr><th>Kod</th><th>Nama ringkas</th><th>Nama penuh (tajuk)</th><th>Digunakan</th></tr></thead>
+        <tbody>${D.subjects.map(s => `<tr><td><b>${esc(s.code)}</b></td>
+          <td><input type="text" value="${esc(s.name)}" data-sm="${s.code}" data-f="name" style="width:100%"></td>
+          <td><input type="text" value="${esc(s.title)}" data-sm="${s.code}" data-f="title" style="width:100%"></td>
+          <td class="small faint">${D.tahap.filter(t => D.st[t.kod]?.[s.code]).map(t => esc(t.kod)).join(', ') || '—'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="pad row" style="border-top:1px solid var(--line)">
+        <input type="text" id="smKod" placeholder="Kod (cth. PM)" style="width:120px">
+        <input type="text" id="smNama" placeholder="Nama ringkas (cth. Pendidikan Moral)" class="grow">
+        <input type="text" id="smTajuk" placeholder="Nama penuh (cth. PENDIDIKAN MORAL)" class="grow">
+        <button class="btn pri" id="smAdd">+ Subjek baharu</button>
+      </div>
+    </div>`;
+
+  $$('[data-st]').forEach(i => i.onchange = () => {
+    const [t, c] = i.dataset.st.split('|'); const x = SD[t][c];
+    if (i.dataset.f === 'kolaborasi') x.kolaborasi = i.checked;
+    else if (i.dataset.f === 'bil_slot') x.bil_slot = Math.min(10, Math.max(1, Math.round(+i.value || 1)));
+    else x.waktu = Math.max(0, +i.value || 0);
+    admSubjek();
+  });
+  $$('[data-stdel]').forEach(b => b.onclick = () => { const [t, c] = b.dataset.stdel.split('|'); delete SD[t][c]; admSubjek(); });
+  $$('[data-stadd]').forEach(b => b.onclick = () => {
+    const t = b.dataset.stadd; const c = $(`[data-stadd-sel="${t}"]`).value; if (!c) return;
+    const lain = D.tahap.map(x => SD[x.kod]?.[c]).find(Boolean);   // cadang nilai dari tahap lain
+    (SD[t] ||= {})[c] = lain ? { ...lain } : { waktu: 1, bil_slot: 1, kolaborasi: false };
+    admSubjek();
+  });
+  $$('[data-stcp]').forEach(b => b.onclick = () => {
+    const t = b.dataset.stcp; const src = $(`[data-stcp-sel="${t}"]`).value;
+    if (!confirm(`Ganti senarai ${tahapNama(t)} dengan senarai ${tahapNama(src)}?`)) return;
+    SD[t] = stClone(SD[src]); admSubjek();
+  });
+  if ($('#stUndo')) $('#stUndo').onclick = () => { SD = stClone(D.st); admSubjek(); };
+  if ($('#stSave')) $('#stSave').onclick = saveSubjekTahap;
+  $$('[data-sm]').forEach(i => i.onchange = async () => {
+    const v = i.value.trim(); if (!v) return;
+    try { const r = await q(sb.from('subjects').update({ [i.dataset.f]: v }).eq('code', i.dataset.sm).select('code')); if (!r.length) throw new Error('Tiada kebenaran'); S[i.dataset.sm][i.dataset.f] = v; toast('Disimpan'); }
+    catch (e) { msg('Gagal', esc(fail(e))); }
+  });
+  $('#smAdd').onclick = async () => {
+    const code = $('#smKod').value.trim().toUpperCase().replace(/\s+/g, ''), name = $('#smNama').value.trim(), title = ($('#smTajuk').value.trim() || name).toUpperCase();
+    if (!/^[A-Z0-9_-]{2,10}$/.test(code)) return toast('Kod 2–10 aksara (huruf/nombor)');
+    if (S[code]) return toast('Kod sudah wujud');
+    if (name.length < 2) return toast('Isi nama subjek');
+    try {
+      await q(sb.from('subjects').insert({ code, name, title, sort: Math.max(0, ...D.subjects.map(s => s.sort || 0)) + 1 }));
+      toast('Subjek ' + code + ' ditambah'); const keep = SD; await reloadKeepPending(); SD = keep; view = 'pengguna'; adminSub = 'subjek'; renderPengguna();
+    } catch (e) { msg('Gagal', esc(fail(e))); }
+  };
+}
+async function saveSubjekTahap() {
+  const d = stDiff(); if (!d.n) return;
+  // kesan kepada agihan sedia ada (slot yang akan dibuang)
+  const hilang = D.allocations.filter(a => a.t != null && (() => { const k = tahapOf(a.cls); const x = SD[k]?.[a.s]; return !x || a.slot > x.bil_slot; })());
+  if (hilang.length) {
+    const ring = {}; hilang.forEach(a => ring[a.s] = (ring[a.s] || 0) + 1);
+    if (!confirm(`${hilang.length} slot yang SUDAH ADA GURU akan dibuang (${Object.entries(ring).map(([k, v]) => k + ': ' + v).join(', ')}) kerana subjek dibuang atau bilangan guru dikurangkan.\n\nTeruskan?`)) return;
+  }
+  const btn = $('#stSave'); btn.disabled = true; btn.textContent = 'Menyimpan…';
+  try {
+    for (const x of d.del) await q(sb.from('subjek_tahap').delete().eq('versi_id', curVersi).eq('tahap_kod', x.t).eq('subject_code', x.c));
+    const up = [...d.ins, ...d.upd].map(x => ({ versi_id: curVersi, tahap_kod: x.t, subject_code: x.c, waktu: x.x.waktu, bil_slot: x.x.bil_slot, kolaborasi: x.x.kolaborasi }));
+    if (up.length) await q(sb.from('subjek_tahap').upsert(up, { onConflict: 'versi_id,tahap_kod,subject_code' }));
+    const r = await q(sb.rpc('selaras_slot', { p_versi: curVersi }));
+    toast(`Disimpan · slot +${r.tambah} / −${r.buang}`);
+  } catch (e) { msg('Gagal menyimpan', esc(fail(e))); }
+  SD = null; pending.clear(); gkPending.clear(); D = null; await load(); view = 'pengguna'; adminSub = 'subjek'; PG = null; render();
+}
 
 function admPengguna() {
   const cnt = r => PG.users.filter(u => u.peranan === r).length;
@@ -1175,11 +1298,11 @@ function printHTML(title, html) {
 }
 function subjectTable(code) {
   const s = S[code];
-  const cols = [1, 2].map(tp => {
-    const cs = D.classes.filter(c => tahapOf(c) === tp && IDX[code]?.[c] && (s.perRow || per(s, c)));
+  const cols = D.tahap.map(tp => {
+    const cs = D.classes.filter(c => tahapOf(c) === tp.kod && IDX[code]?.[c] && per(s, c));
     if (!cs.length) return '';
-    return `<table style="margin-bottom:8px"><thead><tr><th style="width:20%">Kelas (Tahap ${tp})</th><th>Guru</th><th style="width:10%">Waktu</th></tr></thead><tbody>${
-      cs.map(c => { const arr = IDX[code][c]; return `<tr><td>${esc(c)}</td><td>${classTeachers(code, c).map(esc).join(', ') || '—'}</td><td>${s.perRow ? s.perRow * arr.length : per(s, c)}</td></tr>`; }).join('')}</tbody></table>`;
+    return `<table style="margin-bottom:8px"><thead><tr><th style="width:20%">Kelas (${esc(tp.nama)})</th><th>Guru</th><th style="width:10%">Waktu</th></tr></thead><tbody>${
+      cs.map(c => `<tr><td>${esc(c)}</td><td>${classTeachers(code, c).map(esc).join(', ') || '—'}</td><td>${waktuKelas(s, c)}</td></tr>`).join('')}</tbody></table>`;
   }).join('');
   return `<h3 style="margin:10px 0 4px">${esc(s.title)}</h3>${cols}`;
 }

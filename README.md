@@ -63,6 +63,11 @@ Tab **Admin** (admin sahaja):
   (pilihan: kosongkan slot guru tidak aktif — cth. guru berpindah; salin guru kelas). Tindakan lain: Lihat,
   Jadikan semasa, Kunci/Buka kunci (versi dikunci tidak boleh disunting), Nama, Padam (bukan versi semasa).
   Semua pengguna boleh menukar versi yang dilihat melalui pemilih **VERSI** di atas.
+- **Mata pelajaran** — senarai subjek bagi setiap tahap, untuk versi yang sedang dipilih:
+  **Tahap 1 (KP2027)** = Tahun 1, **Tahap 1** = Tahun 2–3, **Tahap 2** = Tahun 4–6. Setiap subjek ada *waktu seminggu*
+  (sama bagi semua kelas dalam tahap), *bilangan guru* (slot; waktu dibahagi sama rata, cth. PI Quran kolaborasi 3 waktu / 3 guru)
+  dan tanda *kolaborasi* (tidak dikira dalam jumlah waktu kelas). Tambah/buang subjek, salin senarai dari tahap lain,
+  dan daftar subjek baharu dalam *Senarai induk*. Bila disimpan, slot agihan diselaraskan automatik (amaran jika slot berguru akan dibuang).
 - **Pengguna & peranan** — tukar peranan, tanda subjek panitia, pautkan kepada nama guru, nyahaktif,
   atau **Daftar pukal** (tampal senarai DELIMa: Nama ⇥ … ⇥ Email).
 - **Log perubahan** — siapa ubah apa, bila (termasuk versi).

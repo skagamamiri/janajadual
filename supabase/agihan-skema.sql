@@ -231,3 +231,14 @@ create table public.pengguna (
 -- public.aktifkan_versi(p_id)   [admin]
 -- public.simpan_agihan(p_changes, p_guru_kelas, p_versi)
 -- public.agihan_untuk_jana(p_versi default versi semasa) -> {versi, agihan, guruKelas}
+
+-- =====================================================================
+-- KEMAS KINI: tahap & mata pelajaran (migration "tahap_subjek", "selaras_slot_v2")
+-- =====================================================================
+-- public.tahap(kod, nama, tahun int[], sort): T1K 'Tahap 1 (KP2027)' {1}, T1 'Tahap 1' {2,3}, T2 'Tahap 2' {4,5,6}
+-- public.subjek_tahap(versi_id, tahap_kod, subject_code, waktu, bil_slot, kolaborasi)  -- ikut versi
+--   beban satu slot = waktu / bil_slot
+-- subjects kini senarai induk sahaja (code, title, name, sort, parts) — lajur waktu_t1/waktu_t2/per_slot dibuang
+-- private.tahap_tahun(tahun) -> kod tahap;  private.slot_patut(versi) -> slot yang sepatutnya wujud
+-- public.selaras_slot(p_versi, p_semak) -> {tambah, buang, buang_berisi}   [admin, versi tidak dikunci]
+-- cipta_versi() turut menyalin subjek_tahap; v_agihan & agihan_untuk_jana() mengira waktu dari subjek_tahap
