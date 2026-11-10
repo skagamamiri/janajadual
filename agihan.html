@@ -799,12 +799,15 @@ function renderKelas() {
   };
 }
 /* ---------- GURU KELAS ---------- */
-const GK_MIN_WAKTU = 4;
+const gkMin = () => +(D?.settings.gk_min_waktu ?? 4);
+const gkTambah = () => String(D?.settings.gk_subjek_tambahan || '').split(',').map(x => x.trim()).filter(Boolean);
+const gkPapar = (code, x) => !!x && (gkTambah().includes(code) || (!x.kolaborasi && x.waktu >= gkMin()));
 function renderGuruKelas() {
   const ed = canEditGK();
   const L = loads();
-  // subjek dengan >= 4 waktu seminggu di mana-mana tahap (bukan kolaborasi), ikut susunan senarai induk
-  const subs = D.subjects.filter(s => D.tahap.some(t => { const x = D.st[t.kod]?.[s.code]; return x && !x.kolaborasi && x.waktu >= GK_MIN_WAKTU; }));
+  const GK_MIN_WAKTU = gkMin(), tambah = gkTambah();
+  // subjek >= had waktu (bukan kolaborasi) + subjek tambahan pilihan admin, ikut susunan senarai induk
+  const subs = D.subjects.filter(s => D.tahap.some(t => gkPapar(s.code, D.st[t.kod]?.[s.code])));
   const isi = D.guruKelas.filter(g => gkEff(g) != null).length;
   // guru yang menjadi guru kelas lebih dari satu kelas
   const kira = {}; D.guruKelas.forEach(g => { const t = gkEff(g); if (t != null) kira[t] = (kira[t] || 0) + 1; });
@@ -817,7 +820,7 @@ function renderGuruKelas() {
     D.subjects.forEach(s => (IDX[s.code]?.[c] || []).forEach(a => { const t = eff(a); if (t != null && per(s, c)) ajar.set(t, (ajar.get(t) || 0) + per(s, c)); }));
     const cells = subs.map(s => {
       const x = stOf(s.code, c);
-      if (!x || x.kolaborasi || x.waktu < GK_MIN_WAKTU) return '<td class="faint">–</td>';
+      if (!gkPapar(s.code, x)) return '<td class="faint">–</td>';
       const ts = [...new Set((IDX[s.code]?.[c] || []).map(eff).filter(v => v != null))];
       return `<td>${ts.length ? ts.map(t => `<span${t === cur ? ' style="font-weight:800;color:var(--brand)"' : ''}>${esc(nm(t))}</span>`).join('<br>') : '<span style="color:var(--bad)">kosong</span>'}</td>`;
     }).join('');
@@ -838,14 +841,27 @@ function renderGuruKelas() {
   $('#main').innerHTML = `
     <div class="card pad">
       <div class="row" style="justify-content:space-between">
-        <div><h2>Guru Kelas</h2><div class="muted small">Guru yang mengajar subjek ${GK_MIN_WAKTU} waktu ke atas bagi setiap kelas. Pilih guru kelas di lajur terakhir — guru yang mengajar kelas itu disenaraikan dahulu.</div></div>
+        <div><h2>Guru Kelas</h2><div class="muted small">Guru yang mengajar subjek ${GK_MIN_WAKTU} waktu ke atas${tambah.length ? ' serta ' + tambah.map(esc).join(', ') : ''} bagi setiap kelas. Pilih guru kelas di lajur terakhir — guru yang mengajar kelas itu disenaraikan dahulu.</div></div>
         <div class="row"><span class="tag">${isi}/${D.guruKelas.length} kelas ada guru kelas</span><button class="btn" onclick="printGuruKelas()">Cetak</button></div>
       </div>
       ${ed ? '' : `<div class="ro-note">${locked() ? 'Versi ini dikunci — paparan sahaja.' : 'Paparan sahaja. Hanya Pentadbir boleh memilih guru kelas.'}</div>`}
+      ${isAdmin() ? `<details style="margin-top:10px"><summary class="small" style="cursor:pointer;font-weight:600;color:var(--ink-2)">Tetapan lajur (admin)</summary>
+        <div class="row small" style="margin-top:8px;gap:8px">Papar subjek <input type="number" id="gkMin" min="0" max="20" value="${GK_MIN_WAKTU}" style="width:64px;min-height:32px;padding:4px 8px"> waktu ke atas, serta subjek tambahan:</div>
+        <div class="sj" style="max-width:none;margin-top:6px">${D.subjects.filter(s => D.tahap.some(t => D.st[t.kod]?.[s.code])).map(s => `<label class="${tambah.includes(s.code) ? 'on' : ''}"><input type="checkbox" data-gkt="${esc(s.code)}" ${tambah.includes(s.code) ? 'checked' : ''}>${esc(s.code)}</label>`).join('')}</div>
+      </details>` : ''}
     </div>
     <div class="card" style="margin-top:16px"><div class="tbl-wrap"><table class="t" id="gkTbl">
       <thead><tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>`;
+  const simpanSet = async (key, value) => {
+    try { const r = await q(sb.from('settings').update({ value }).eq('key', key).select('key')); if (!r.length) throw new Error('Tiada kebenaran'); D.settings[key] = value; renderGuruKelas(); setTimeout(() => { const d = $('#gkTbl')?.closest('#main')?.querySelector('details'); if (d) d.open = true; }, 0); }
+    catch (e) { msg('Gagal menyimpan', esc(fail(e))); }
+  };
+  if ($('#gkMin')) $('#gkMin').onchange = e => simpanSet('gk_min_waktu', String(Math.max(0, +e.target.value || 0)));
+  $$('[data-gkt]').forEach(c => c.onchange = () => {
+    const set = new Set(gkTambah()); c.checked ? set.add(c.dataset.gkt) : set.delete(c.dataset.gkt);
+    simpanSet('gk_subjek_tambahan', D.subjects.map(s => s.code).filter(x => set.has(x)).join(','));
+  });
   $$('[data-gk]').forEach(sel => sel.onchange = () => {
     const g = D.guruKelas.find(x => x.cls === sel.dataset.gk); const v = toId(sel.value);
     if (v === g.t) gkPending.delete(g.cls); else gkPending.set(g.cls, v);
