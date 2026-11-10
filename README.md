@@ -71,7 +71,9 @@ Tab **Admin** (admin sahaja):
   **Tahap 1 (KP2027)** = Tahun 1, **Tahap 1** = Tahun 2–3, **Tahap 2** = Tahun 4–6. Setiap subjek ada *waktu seminggu*
   (sama bagi semua kelas dalam tahap), *bilangan guru* (slot; waktu dibahagi sama rata, cth. PI Quran kolaborasi 3 waktu / 3 guru)
   dan tanda *kolaborasi* (tidak dikira dalam jumlah waktu kelas). Tambah/buang subjek, salin senarai dari tahap lain,
-  dan daftar subjek baharu dalam *Senarai induk*. Bila disimpan, slot agihan diselaraskan automatik (amaran jika slot berguru akan dibuang).
+  dan daftar subjek baharu dalam *Senarai induk*.
+  **Guru dipautkan**: kumpulan slot yang mesti diisi guru yang sama dalam setiap kelas (cth. PI-U = PI-J = PI-Q #1);
+  bila satu diisi, yang lain dikemas kini serentak oleh database. Ikut versi. Bila disimpan, slot agihan diselaraskan automatik (amaran jika slot berguru akan dibuang).
 - **Pengguna & peranan** — tukar peranan, tanda subjek panitia, pautkan kepada nama guru, nyahaktif,
   atau **Daftar pukal** (tampal senarai DELIMa: Nama ⇥ … ⇥ Email).
 - **Log perubahan** — siapa ubah apa, bila (termasuk versi).

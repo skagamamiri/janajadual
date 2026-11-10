@@ -254,3 +254,11 @@ create table public.pengguna (
 -- =====================================================================
 -- pengguna.peranan in ('admin','pentadbir','ketua_panitia','guru')
 -- private.boleh_pilih_gk() = admin atau pentadbir — dasar "pentadbir ubah guru_kelas" & simpan_agihan(p_guru_kelas)
+
+-- =====================================================================
+-- KEMAS KINI: pautan guru (migration "pautan_guru")
+-- =====================================================================
+-- versi.pautan jsonb: [["PI-U:1","PI-J:1","PI-Q:1"], ...] — slot yang mesti diisi guru yang sama dalam setiap kelas
+-- trigger pautan_guru (after update of teacher_id on allocations): kemas kini slot lain dalam kumpulan
+-- public.selaras_pautan(p_versi) -> bilangan slot diselaraskan [admin]
+-- cipta_versi() menyalin pautan dari versi sumber

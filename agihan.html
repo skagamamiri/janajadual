@@ -217,6 +217,7 @@ details.alt summary{cursor:pointer;color:var(--ink-2);font-size:13px;font-weight
 tr.off td{opacity:.5}
 #vbar{padding-top:14px}
 .tahap-wrap{grid-template-columns:repeat(auto-fit,minmax(330px,1fr));align-items:start}
+.lnk{font-size:12px;flex:none;cursor:help;opacity:.75}
 .tahap h3{flex-wrap:wrap;gap:4px}
 .st-tbl input[type=number]{width:72px;min-height:32px;padding:4px 8px}
 .st-tbl td{vertical-align:middle}
@@ -397,7 +398,14 @@ const tahapNama = kod => D?.tahap.find(t => t.kod === kod)?.nama || kod;
 const stOf = (code, cls) => D?.st?.[tahapOf(cls)]?.[code] || null;                // {waktu, bil_slot, kolaborasi}
 const per = (s, cls) => { const x = stOf(s.code, cls); return x ? x.waktu / x.bil_slot : 0; };   // waktu bagi SATU slot
 const waktuKelas = (s, cls) => stOf(s.code, cls)?.waktu || 0;                    // waktu seminggu subjek bagi kelas
-const eff = a => pending.has(a.id) ? pending.get(a.id) : a.t;
+let LINK = {};   // id agihan -> [slot yang dipautkan dalam kelas yang sama] (guru mesti sama)
+const eff = a => {
+  if (pending.has(a.id)) return pending.get(a.id);
+  const sib = LINK[a.id];
+  if (sib) for (const b of sib) if (b !== a && pending.has(b.id)) return pending.get(b.id);
+  return a.t;
+};
+const linkLabel = a => (LINK[a.id] || []).filter(b => b !== a).map(b => b.s + (IDX[b.s]?.[b.cls]?.length > 1 ? ' #' + b.slot : '')).join(', ');
 const gkEff = g => gkPending.has(g.cls) ? gkPending.get(g.cls) : g.t;
 const nm = id => (id != null && T[id]) ? T[id].name : '';
 const cfg = { get min() { return +(D?.settings.waktu_min ?? 24); }, get max() { return +(D?.settings.waktu_max ?? 30); } };
@@ -486,7 +494,7 @@ sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => onSession(session
 async function load() {
   if (!D) $('#main').innerHTML = '<div class="center"><div><div class="spin"></div><div class="muted">Memuatkan data…</div></div></div>';
   try {
-    VERSI = await q(sb.from('versi').select('id,nama,catatan,aktif,dikunci,created_at,created_by').order('created_at', { ascending: false }));
+    VERSI = await q(sb.from('versi').select('id,nama,catatan,aktif,dikunci,created_at,created_by,pautan').order('created_at', { ascending: false }));
     if (!VERSI.some(v => v.id === curVersi)) {
       const saved = +store.get('agihan.versi', 0);
       curVersi = (VERSI.find(v => v.id === saved) || VERSI.find(v => v.aktif) || VERSI[0])?.id ?? null;
@@ -530,6 +538,13 @@ function init(r) {
   D.teachersSorted = [...D.teachers].sort((a, b) => a.name.localeCompare(b.name, 'ms'));
   D.allocations.forEach(a => { byId[a.id] = a; ((IDX[a.s] ||= {})[a.cls] ||= []).push(a); });
   Object.values(IDX).forEach(m => Object.values(m).forEach(arr => arr.sort((x, y) => x.slot - y.slot)));
+  LINK = {};
+  for (const g of (cv()?.pautan || [])) {
+    for (const cls of D.classes) {
+      const mem = g.map(k => { const i = k.lastIndexOf(':'); const code = k.slice(0, i), slot = +k.slice(i + 1); return (IDX[code]?.[cls] || []).find(a => a.slot === slot); }).filter(Boolean);
+      if (mem.length > 1) mem.forEach(a => LINK[a.id] = mem);
+    }
+  }
   pending.clear(); gkPending.clear(); SD = null;
   if (!curSub || !S[curSub]) curSub = (isKP() && me.subjek.find(c => S[c])) || D.subjects[0]?.code;
   if (!curCls || !D.classes.includes(curCls)) curCls = D.classes[0];
@@ -622,7 +637,7 @@ function renderAgihan() {
       const slots = arr.map(a => {
         const v = eff(a);
         return `<div class="slot">${arr.length > 1 ? `<span class="sn">${a.slot}</span>` : ''}
-          <select data-id="${a.id}" class="${pending.has(a.id) ? 'chg' : ''} ${v != null ? '' : 'empty'}" aria-label="Guru ${esc(c)}"${dis}>${teacherOptions(v)}</select>
+          <select data-id="${a.id}" class="${pending.has(a.id) || (LINK[a.id] || []).some(b => pending.has(b.id)) ? 'chg' : ''} ${v != null ? '' : 'empty'}" aria-label="Guru ${esc(c)}"${dis}>${teacherOptions(v)}</select>${LINK[a.id] ? `<span class="lnk" title="Guru sama dengan ${esc(linkLabel(a))} — diisi serentak">🔗</span>` : ''}
           <span class="ld ${v != null ? lvl(L[v]?.total || 0) : ''}" title="Jumlah waktu guru ini seminggu">${v != null ? (L[v]?.total || 0) : '–'}</span></div>`;
       }).join('');
       return `<div class="crow"><div class="cls">${esc(c)}<small>${x.waktu} waktu/mgg</small></div><div>${slots}</div></div>`;
@@ -648,6 +663,16 @@ function renderAgihan() {
   $$('#subChips .chip').forEach(b => b.onclick = () => { curSub = b.dataset.sub; renderAgihan(); });
   $$('select[data-id]').forEach(sel => sel.onchange = () => {
     const a = byId[sel.dataset.id]; const v = toId(sel.value);
+    const sib = LINK[a.id];
+    if (sib) {
+      // satu perubahan sahaja dihantar; database menyelaraskan slot lain yang dipautkan
+      sib.forEach(b => pending.delete(b.id));
+      if (sib.some(b => b.t !== v)) {
+        const sasar = a.t !== v ? a : (sib.find(b => b.t !== v && canEditSub(b.s)) || sib.find(b => b.t !== v));
+        pending.set(sasar.id, v);
+      }
+      renderAgihan(); updatePbar(); return;
+    }
     if (v === a.t) pending.delete(a.id); else pending.set(a.id, v);
     sel.classList.toggle('chg', pending.has(a.id));
     sel.classList.toggle('empty', v == null);
@@ -1181,6 +1206,7 @@ function admSubjek() {
       ${ro ? `<div class="ro-note">Versi ini dikunci. Buka kunci di Admin → Versi untuk mengubah mata pelajaran.</div>` : ''}
     </div>
     <div class="st-grid">${cards}</div>
+    ${pautanHTML()}
     ${masterHTML()}`;
 
   $$('[data-st]').forEach(i => i.onchange = () => {
@@ -1204,8 +1230,62 @@ function admSubjek() {
   });
   if ($('#stUndo')) $('#stUndo').onclick = () => { SD = stClone(D.st); admSubjek(); };
   if ($('#stSave')) $('#stSave').onclick = saveSubjekTahap;
-  bindMaster();
+  bindMaster(); bindPautan();
 }
+
+/* ---------- Pautan guru (slot yang mesti diisi oleh guru yang sama) ---------- */
+let pautanPilih = new Set();
+function pautanOpsyen() {
+  const maks = {};
+  D.tahap.forEach(t => Object.entries(D.st[t.kod] || {}).forEach(([c, x]) => maks[c] = Math.max(maks[c] || 0, x.bil_slot)));
+  return D.subjects.filter(s => maks[s.code]).flatMap(s => Array.from({ length: maks[s.code] }, (_, i) => ({ k: s.code + ':' + (i + 1), label: s.code + (maks[s.code] > 1 ? ' #' + (i + 1) : '') })));
+}
+const pautanLabel = k => { const i = k.lastIndexOf(':'); const c = k.slice(0, i), n = +k.slice(i + 1); const m = Math.max(0, ...D.tahap.map(t => D.st[t.kod]?.[c]?.bil_slot || 0)); return c + (m > 1 ? ' #' + n : ''); };
+function pautanHTML() {
+  const P = cv()?.pautan || [], ro = locked();
+  return `<div class="card" style="margin-top:16px">
+    <div class="pad" style="border-bottom:1px solid var(--line)"><h2 style="margin:0">Guru dipautkan</h2>
+      <div class="muted small">Slot dalam satu kumpulan mesti diisi oleh <b>guru yang sama</b> bagi setiap kelas. Bila satu slot diisi (oleh KP atau admin), slot lain dalam kumpulan itu dikemas kini serentak. Ikut versi <b>${esc(cv()?.nama || '')}</b>.</div></div>
+    <div class="pad">
+      ${P.length ? P.map((g, i) => `<div class="row" style="gap:6px;margin:4px 0">🔗 ${g.map(k => `<span class="tag" style="font-size:12.5px"><b>${esc(pautanLabel(k))}</b></span>`).join('<span class="faint">=</span>')}
+        ${ro ? '' : `<button class="btn ghost" data-pdel="${i}" title="Buang pautan" style="color:var(--bad)">✕</button>`}</div>`).join('') : '<div class="muted small">Tiada pautan dalam versi ini.</div>'}
+      ${ro ? '' : `<div style="margin-top:12px"><div class="small" style="font-weight:600;margin-bottom:6px">Tambah pautan — tanda 2 slot atau lebih:</div>
+        <div class="sj" style="max-width:none">${pautanOpsyen().map(o => `<label class="${pautanPilih.has(o.k) ? 'on' : ''}"><input type="checkbox" data-pk="${esc(o.k)}" ${pautanPilih.has(o.k) ? 'checked' : ''}>${esc(o.label)}</label>`).join('')}</div>
+        <div class="row" style="margin-top:8px"><button class="btn pri" id="pAdd"${pautanPilih.size >= 2 ? '' : ' disabled'}>+ Tambah pautan${pautanPilih.size ? ' (' + pautanPilih.size + ')' : ''}</button>
+        ${P.length ? '<button class="btn" id="pSync" title="Isi slot yang berbeza dengan guru slot pertama yang telah diisi">Selaraskan data sedia ada</button>' : ''}</div></div>`}
+    </div></div>`;
+}
+async function simpanPautan(P, ok) {
+  try {
+    const r = await q(sb.from('versi').update({ pautan: P }).eq('id', curVersi).select('id'));
+    if (!r.length) throw new Error('Tiada kebenaran');
+    const n = await q(sb.rpc('selaras_pautan', { p_versi: curVersi }));
+    toast(ok + (n ? ` · ${n} slot diselaraskan` : ''));
+  } catch (e) { msg('Gagal', esc(fail(e))); }
+  pautanPilih = new Set(); const keep = SD; await reloadKeepPending(); SD = keep; view = 'pengguna'; adminSub = 'subjek'; renderPengguna();
+}
+function bindPautan() {
+  $$('[data-pk]').forEach(c => c.onchange = () => { c.checked ? pautanPilih.add(c.dataset.pk) : pautanPilih.delete(c.dataset.pk); admSubjek(); });
+  if ($('#pAdd')) $('#pAdd').onclick = () => {
+    if (smPerluSimpanDulu()) return;
+    const P = cv().pautan || [];
+    const g = pautanOpsyen().map(o => o.k).filter(k => pautanPilih.has(k));
+    if (P.some(x => x.some(k => g.includes(k)))) return msg('Tidak boleh', 'Salah satu slot sudah berada dalam kumpulan pautan lain. Buang pautan itu dahulu.');
+    if (!confirm(`Pautkan ${g.map(pautanLabel).join(' = ')}?\n\nBagi kelas yang sudah diisi, slot akan diselaraskan kepada guru slot pertama yang telah diisi (${pautanLabel(g[0])} dahulu).`)) return;
+    simpanPautan([...P, g], 'Pautan ditambah');
+  };
+  $$('[data-pdel]').forEach(b => b.onclick = () => {
+    const P = [...(cv().pautan || [])]; const g = P.splice(+b.dataset.pdel, 1)[0];
+    if (!confirm('Buang pautan ' + g.map(pautanLabel).join(' = ') + '? Data guru sedia ada tidak diubah.')) return;
+    simpanPautan(P, 'Pautan dibuang');
+  });
+  if ($('#pSync')) $('#pSync').onclick = async () => {
+    if (!confirm('Selaraskan semua kelas mengikut pautan? Slot yang berbeza akan diisi dengan guru slot pertama yang telah diisi dalam kumpulan.')) return;
+    try { const n = await q(sb.rpc('selaras_pautan', { p_versi: curVersi })); toast(n + ' slot diselaraskan'); } catch (e) { return msg('Gagal', esc(fail(e))); }
+    const keep = SD; await reloadKeepPending(); SD = keep; view = 'pengguna'; adminSub = 'subjek'; renderPengguna();
+  };
+}
+
 let smEdit = null;   // kod subjek yang sedang disunting dalam senarai induk
 function masterHTML() {
   const used = c => D.tahap.filter(t => D.st[t.kod]?.[c]).map(t => t.kod);
