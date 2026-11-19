@@ -412,7 +412,7 @@ const canEditAny = () => canEditGK() || (!locked() && isKP() && (me.subjek || []
 const tahapOf = cls => D?.tahapTahun?.[parseInt(cls, 10)] || null;
 const tahapNama = kod => D?.tahap.find(t => t.kod === kod)?.nama || kod;
 const stOf = (code, cls) => D?.st?.[tahapOf(cls)]?.[code] || null;                // {waktu, bil_slot, kolaborasi}
-const per = (s, cls) => { const x = stOf(s.code, cls); return x ? x.waktu / x.bil_slot : 0; };   // waktu bagi SATU slot
+const per = (s, cls) => { const x = stOf(s.code, cls); return x ? (x.kredit_penuh ? x.waktu : x.waktu / x.bil_slot) : 0; };   // waktu bagi SATU slot (kredit penuh: setiap guru dikira waktu penuh)
 const waktuKelas = (s, cls) => stOf(s.code, cls)?.waktu || 0;                    // waktu seminggu subjek bagi kelas
 let LINK = {};   // id agihan -> [slot yang dipautkan dalam kelas yang sama] (guru mesti sama)
 const eff = a => {
@@ -525,7 +525,7 @@ async function load() {
       q(sb.from('allocations').select('id,subject_code,class_name,slot,teacher_id').eq('versi_id', curVersi).order('id').range(0, 4999)),
       q(sb.from('guru_kelas').select('class_name,teacher_id').eq('versi_id', curVersi)),
       q(sb.from('tahap').select('kod,nama,tahun,sort').order('sort')),
-      q(sb.from('subjek_tahap').select('tahap_kod,subject_code,waktu,bil_slot,kolaborasi').eq('versi_id', curVersi))
+      q(sb.from('subjek_tahap').select('tahap_kod,subject_code,waktu,bil_slot,kolaborasi,kredit_penuh').eq('versi_id', curVersi))
     ]);
     const gkMap = Object.fromEntries(gk.map(g => [g.class_name, g.teacher_id]));
     classes.forEach(c => c.guru_kelas_id = gkMap[c.name] ?? null);
@@ -545,7 +545,7 @@ function init(r) {
     subjects: r.subjects.map(s => ({ code: s.code, title: s.title, name: s.name, sort: s.sort, parts: s.parts })),
     tahap: r.tahap,
     tahapTahun: Object.fromEntries(r.tahap.flatMap(t => (t.tahun || []).map(y => [y, t.kod]))),
-    st: r.st.reduce((o, x) => { (o[x.tahap_kod] ||= {})[x.subject_code] = { waktu: +x.waktu, bil_slot: +x.bil_slot, kolaborasi: !!x.kolaborasi }; return o; }, {}),
+    st: r.st.reduce((o, x) => { (o[x.tahap_kod] ||= {})[x.subject_code] = { waktu: +x.waktu, bil_slot: +x.bil_slot, kolaborasi: !!x.kolaborasi, kredit_penuh: !!x.kredit_penuh }; return o; }, {}),
     classes: r.classes.map(c => c.name),
     guruKelas: r.classes.map(c => ({ cls: c.name, t: c.guru_kelas_id })),
     allocations: r.allocations.map(a => ({ id: a.id, s: a.subject_code, cls: a.class_name, slot: a.slot, t: a.teacher_id }))
@@ -670,7 +670,7 @@ function renderAgihan() {
       }).join('');
       return `<div class="crow kc ${kk(c)}"><div class="cls">${esc(c)}<small>${x.waktu} waktu/mgg</small></div><div>${slots}</div></div>`;
     }).join('');
-    return `<div class="card tahap">${head}<span class="faint small">${x.waktu} waktu${x.bil_slot > 1 ? ` · ${x.bil_slot} guru × ${+(x.waktu / x.bil_slot).toFixed(2)}` : ''}${x.kolaborasi ? ' · kolaborasi' : ''}</span></h3>${rows || '<div class="pad muted">Tiada kelas</div>'}</div>`;
+    return `<div class="card tahap">${head}<span class="faint small">${x.waktu} waktu${x.bil_slot > 1 ? (x.kredit_penuh ? ` · ${x.bil_slot} guru serentak (${x.waktu} seorang)` : ` · ${x.bil_slot} guru × ${+(x.waktu / x.bil_slot).toFixed(2)}`) : ''}${x.kolaborasi ? ' · kolaborasi' : ''}</span></h3>${rows || '<div class="pad muted">Tiada kelas</div>'}</div>`;
   }).join('');
 
   $('#main').innerHTML = `
@@ -1186,7 +1186,7 @@ function stDiff() {
     const a = D.st[t.kod] || {}, b = SD[t.kod] || {};
     for (const [c, x] of Object.entries(b)) {
       if (!a[c]) ins.push({ t: t.kod, c, x });
-      else if (a[c].waktu !== x.waktu || a[c].bil_slot !== x.bil_slot || a[c].kolaborasi !== x.kolaborasi) upd.push({ t: t.kod, c, x });
+      else if (a[c].waktu !== x.waktu || a[c].bil_slot !== x.bil_slot || a[c].kolaborasi !== x.kolaborasi || !!a[c].kredit_penuh !== !!x.kredit_penuh) upd.push({ t: t.kod, c, x });
     }
     for (const c of Object.keys(a)) if (!b[c]) del.push({ t: t.kod, c });
   }
@@ -1208,13 +1208,14 @@ function admSubjek() {
       <div class="pad" style="border-bottom:1px solid var(--line)"><h2 style="margin:0">${esc(t.nama)}</h2>
         <div class="muted small">Tahun ${(t.tahun || []).join(', ')} · ${kls} kelas · <b>${tot}</b> waktu seminggu setiap kelas (tidak termasuk kolaborasi)</div></div>
       <div class="tbl-wrap"><table class="t st-tbl">
-        <thead><tr><th>Subjek</th><th class="num">Waktu</th><th class="num" title="Bilangan guru / slot bagi setiap kelas">Guru</th><th title="Kolaborasi: tidak dikira dalam jumlah waktu kelas">Kolab.</th><th></th></tr></thead>
-        <tbody>${codes.map(c => { const x = L[c], o = A[c]; const cls = !o ? 'baru' : (o.waktu !== x.waktu || o.bil_slot !== x.bil_slot || o.kolaborasi !== x.kolaborasi) ? 'ubah' : '';
+        <thead><tr><th>Subjek</th><th class="num">Waktu</th><th class="num" title="Bilangan guru / slot bagi setiap kelas">Guru</th><th title="Serentak: semua guru masuk kelas bersama — setiap guru dikira waktu penuh">Serentak</th><th title="Kolaborasi: tidak dikira dalam jumlah waktu kelas">Kolab.</th><th></th></tr></thead>
+        <tbody>${codes.map(c => { const x = L[c], o = A[c]; const cls = !o ? 'baru' : (o.waktu !== x.waktu || o.bil_slot !== x.bil_slot || o.kolaborasi !== x.kolaborasi || !!o.kredit_penuh !== !!x.kredit_penuh) ? 'ubah' : '';
           return `<tr class="${cls}"><td><b>${esc(c)}</b><div class="faint small">${esc(S[c]?.name || '')}</div></td>
             <td class="num"><input type="number" min="0" step="0.5" value="${x.waktu}" data-st="${t.kod}|${c}" data-f="waktu"${dis}></td>
             <td class="num"><input type="number" min="1" max="10" step="1" value="${x.bil_slot}" data-st="${t.kod}|${c}" data-f="bil_slot" style="width:56px"${dis}></td>
+            <td style="text-align:center"><input type="checkbox" ${x.kredit_penuh ? 'checked' : ''} data-st="${t.kod}|${c}" data-f="kredit_penuh"${dis}></td>
             <td style="text-align:center"><input type="checkbox" ${x.kolaborasi ? 'checked' : ''} data-st="${t.kod}|${c}" data-f="kolaborasi"${dis}></td>
-            <td>${ro ? '' : `<button class="btn ghost" data-stdel="${t.kod}|${c}" title="Buang dari ${esc(t.nama)}">✕</button>`}</td></tr>`; }).join('') || `<tr><td colspan="5" class="muted">Tiada subjek.</td></tr>`}
+            <td>${ro ? '' : `<button class="btn ghost" data-stdel="${t.kod}|${c}" title="Buang dari ${esc(t.nama)}">✕</button>`}</td></tr>`; }).join('') || `<tr><td colspan="6" class="muted">Tiada subjek.</td></tr>`}
         </tbody></table></div>
       ${ro ? '' : `<div class="pad row" style="border-top:1px solid var(--line)">
         <select data-stadd-sel="${t.kod}" class="grow" style="min-width:150px">${avail.map(s => `<option value="${s.code}">${esc(s.code)} — ${esc(s.name)}</option>`).join('') || '<option value="">(semua subjek sudah ada)</option>'}</select>
@@ -1229,7 +1230,7 @@ function admSubjek() {
     <div class="card pad" style="margin-bottom:16px">
       <div class="row" style="justify-content:space-between">
         <div><h2>Mata pelajaran setiap tahap</h2>
-          <div class="muted small">Bagi versi <b>${esc(cv()?.nama || '')}</b>. Peruntukan waktu sama bagi semua kelas dalam satu tahap. <b>Guru</b> = bilangan guru (slot) bagi setiap kelas — waktu dibahagi sama rata antara mereka (cth. PI Quran kolaborasi 3 waktu, 3 guru = 1 waktu seorang).</div></div>
+          <div class="muted small">Bagi versi <b>${esc(cv()?.nama || '')}</b>. Peruntukan waktu sama bagi semua kelas dalam satu tahap. <b>Guru</b> = bilangan guru (slot) bagi setiap kelas — waktu dibahagi sama rata antara mereka (cth. PI Quran kolaborasi 3 waktu, 3 guru = 1 waktu seorang). Tanda <b>Serentak</b> jika semua guru masuk kelas bersama — setiap guru dikira waktu penuh (cth. AM 4 waktu, 2 guru = 4 waktu seorang).</div></div>
         ${ro ? '' : `<div class="row"><button class="btn" id="stUndo"${diff.n ? '' : ' disabled'}>Batal</button><button class="btn pri" id="stSave"${diff.n ? '' : ' disabled'}>Simpan${diff.n ? ` (${diff.n})` : ''}</button></div>`}
       </div>
       ${ro ? `<div class="ro-note">Versi ini dikunci. Buka kunci di Admin → Versi untuk mengubah mata pelajaran.</div>` : ''}
@@ -1241,6 +1242,7 @@ function admSubjek() {
   $$('[data-st]').forEach(i => i.onchange = () => {
     const [t, c] = i.dataset.st.split('|'); const x = SD[t][c];
     if (i.dataset.f === 'kolaborasi') x.kolaborasi = i.checked;
+    else if (i.dataset.f === 'kredit_penuh') x.kredit_penuh = i.checked;
     else if (i.dataset.f === 'bil_slot') x.bil_slot = Math.min(10, Math.max(1, Math.round(+i.value || 1)));
     else x.waktu = Math.max(0, +i.value || 0);
     admSubjek();
@@ -1249,7 +1251,7 @@ function admSubjek() {
   $$('[data-stadd]').forEach(b => b.onclick = () => {
     const t = b.dataset.stadd; const c = $(`[data-stadd-sel="${t}"]`).value; if (!c) return;
     const lain = D.tahap.map(x => SD[x.kod]?.[c]).find(Boolean);   // cadang nilai dari tahap lain
-    (SD[t] ||= {})[c] = lain ? { ...lain } : { waktu: 1, bil_slot: 1, kolaborasi: false };
+    (SD[t] ||= {})[c] = lain ? { ...lain } : { waktu: 1, bil_slot: 1, kolaborasi: false, kredit_penuh: false };
     admSubjek();
   });
   $$('[data-stcp]').forEach(b => b.onclick = () => {
@@ -1419,7 +1421,7 @@ async function saveSubjekTahap() {
   const btn = $('#stSave'); btn.disabled = true; btn.textContent = 'Menyimpan…';
   try {
     for (const x of d.del) await q(sb.from('subjek_tahap').delete().eq('versi_id', curVersi).eq('tahap_kod', x.t).eq('subject_code', x.c));
-    const up = [...d.ins, ...d.upd].map(x => ({ versi_id: curVersi, tahap_kod: x.t, subject_code: x.c, waktu: x.x.waktu, bil_slot: x.x.bil_slot, kolaborasi: x.x.kolaborasi }));
+    const up = [...d.ins, ...d.upd].map(x => ({ versi_id: curVersi, tahap_kod: x.t, subject_code: x.c, waktu: x.x.waktu, bil_slot: x.x.bil_slot, kolaborasi: x.x.kolaborasi, kredit_penuh: !!x.x.kredit_penuh }));
     if (up.length) await q(sb.from('subjek_tahap').upsert(up, { onConflict: 'versi_id,tahap_kod,subject_code' }));
     const r = await q(sb.rpc('selaras_slot', { p_versi: curVersi }));
     toast(`Disimpan · slot +${r.tambah} / −${r.buang}`);

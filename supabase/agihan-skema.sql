@@ -262,3 +262,8 @@ create table public.pengguna (
 -- trigger pautan_guru (after update of teacher_id on allocations): kemas kini slot lain dalam kumpulan
 -- public.selaras_pautan(p_versi) -> bilangan slot diselaraskan [admin]
 -- cipta_versi() menyalin pautan dari versi sumber
+
+-- Kemas kini: kredit penuh (guru serentak)
+-- alter table public.subjek_tahap add column kredit_penuh boolean not null default false;
+-- Beban guru per slot = case when kredit_penuh then waktu else waktu / bil_slot end
+-- (v_agihan, audit_subjek_tahap & cipta_versi dikemas kini; agihan_untuk_jana kekal waktu / bil_slot = waktu kelas).

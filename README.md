@@ -70,6 +70,7 @@ Tab **Admin** (admin sahaja):
 - **Mata pelajaran** — senarai subjek bagi setiap tahap, untuk versi yang sedang dipilih:
   **Tahap 1 (KP2027)** = Tahun 1, **Tahap 1** = Tahun 2–3, **Tahap 2** = Tahun 4–6. Setiap subjek ada *waktu seminggu*
   (sama bagi semua kelas dalam tahap), *bilangan guru* (slot; waktu dibahagi sama rata, cth. PI Quran kolaborasi 3 waktu / 3 guru)
+  tanda *serentak* (semua guru masuk kelas bersama — setiap guru dikira waktu penuh, cth. AM 4 waktu / 2 guru = 4 waktu seorang)
   dan tanda *kolaborasi* (tidak dikira dalam jumlah waktu kelas). Tambah/buang subjek, salin senarai dari tahap lain,
   dan daftar subjek baharu dalam *Senarai induk*.
   **Guru dipautkan**: kumpulan slot yang mesti diisi guru yang sama dalam setiap kelas (cth. PI-U = PI-J = PI-Q #1);
