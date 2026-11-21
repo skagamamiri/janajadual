@@ -806,7 +806,7 @@ function renderBeban() {
     const tags = Object.entries(r.by).map(([c, p]) => `<span class="tag"${c === bebanSub ? ' style="background:var(--brand-soft);color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)"' : ''}>${esc(c)} <b>${p}</b></span>`).join('');
     const det = bebanOpen.has(r.id) ? `<tr class="detail"><td class="hide-sm"></td><td colspan="3">
         <div class="tbl-wrap"><table class="t det-t"><thead><tr><th>Subjek</th><th>Kelas</th><th class="num">Waktu</th></tr></thead><tbody>
-        ${groupItems(r.items).map(i => `<tr><td>${esc(S[i.s]?.name || i.s)}</td><td><div class="kw">${i.cls.map(c => `<span class="kwi kc ${kk(c)}">${esc(c)} <b>${fmtW(i.w[c])}</b></span>`).join('')}</div></td><td class="num">${fmtW(i.p)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Tiada agihan</td></tr>'}
+        ${groupItems(r.items).map(i => `<tr><td>${esc(S[i.s]?.name || i.s)}</td><td><div class="kw">${i.cls.map(c => `<span class="kwi kc ${kk(c)}">${esc(kLbl(r.id, i.s, c))} <b>${fmtW(i.w[c])}</b></span>`).join('')}</div></td><td class="num">${fmtW(i.p)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Tiada agihan</td></tr>'}
         </tbody></table></div>
         <div class="row" style="margin-top:8px">
           <button class="btn" onclick="event.stopPropagation();printSlip(${r.id})">Cetak slip guru</button>
@@ -822,7 +822,7 @@ function renderBeban() {
   $('#main').innerHTML = `
     ${mine ? `<div class="card pad me"><div><div class="k small faint" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Beban waktu anda</div>
       <div class="v">${mine.total} <span class="small muted" style="font-weight:600">waktu seminggu</span></div>
-      <div>${groupItems(mine.items).map(x => `<span class="tag">${esc(x.s)}: ${x.cls.map(shortCls).join(', ')} <b>${x.p}</b></span>`).join('')}</div></div>
+      <div>${groupItems(mine.items).map(x => `<span class="tag">${esc(x.s)}: ${x.cls.map(c => kLbl(me.teacher_id, x.s, c, shortCls)).join(', ')} <b>${x.p}</b></span>`).join('')}</div></div>
       <button class="btn" onclick="printSlip(${me.teacher_id})">Cetak slip saya</button></div>` : ''}
     <div class="stats" style="${mine ? 'margin-top:0' : ''}">
       <div class="card stat"><div class="k">Guru</div><div class="v">${D.teachers.filter(t => t.aktif).length}</div></div>
@@ -854,6 +854,9 @@ function renderBeban() {
   if ($('#bAdd')) $('#bAdd').onclick = () => { $('#addName').value = ''; $('#addErr').textContent = ''; openModal('#mAdd'); setTimeout(() => $('#addName').focus(), 50); };
   $$('tr.clk').forEach(tr => tr.onclick = () => { const t = +tr.dataset.t; bebanOpen.has(t) ? bebanOpen.delete(t) : bebanOpen.add(t); renderBeban(); });
 }
+// (K) = kelas pasangan kolaborasi: subjek kolaborasi di kelas yang guru itu tidak mengajar PI-J (kelas utama)
+function isK(t, code, cls) { return !!stOf(code, cls)?.kolaborasi && !(IDX['PI-J']?.[cls] || []).some(a => eff(a) === +t); }
+const kLbl = (t, code, cls, f = c => c) => f(cls) + (isK(t, code, cls) ? ' (K)' : '');
 function groupItems(items) {
   const m = {};
   items.forEach(i => { const o = (m[i.s] ||= { s: i.s, cls: [], p: 0, w: {} }); if (!o.cls.includes(i.cls)) o.cls.push(i.cls); o.w[i.cls] = (o.w[i.cls] || 0) + i.p; o.p += i.p; });
@@ -1617,14 +1620,14 @@ function printAllSubjects() { printHTML('Agihan Guru Mata Pelajaran', D.subjects
 function printRumusan() { printHTML('Rumusan Guru Mata Pelajaran Mengikut Kelas', matrixHTML(false)); }
 function printBeban() {
   const L = loads();
-  const rows = D.teachers.filter(t => t.aktif || L[t.id].total).map(t => `<tr><td>${t.bil ?? ''}</td><td>${esc(t.name)}</td><td>${groupItems(L[t.id].items).map(x => `${esc(x.s)}: ${x.cls.map(shortCls).join(', ')} (${x.p})`).join('<br>')}</td><td><b>${L[t.id].total}</b></td></tr>`).join('');
+  const rows = D.teachers.filter(t => t.aktif || L[t.id].total).map(t => `<tr><td>${t.bil ?? ''}</td><td>${esc(t.name)}</td><td>${groupItems(L[t.id].items).map(x => `${esc(x.s)}: ${x.cls.map(c => kLbl(t.id, x.s, c, shortCls)).join(', ')} (${x.p})`).join('<br>')}</td><td><b>${L[t.id].total}</b></td></tr>`).join('');
   printHTML('Beban Waktu Mengajar Guru (Seminggu)', `<table><thead><tr><th>Bil</th><th>Nama Guru</th><th>Subjek: Kelas (Waktu)</th><th>Jumlah</th></tr></thead><tbody>${rows}</tbody></table>`);
 }
 function slipHTML(id, L) {
   const o = L[id];
   const gk = D.guruKelas.filter(g => gkEff(g) === id).map(g => g.cls);
   return `<div class="pb"><h3 style="margin:0 0 6px">${esc(nm(id))}</h3><table><thead><tr><th>Mata Pelajaran</th><th>Kelas</th><th>Waktu Seminggu</th></tr></thead><tbody>${
-    groupItems(o.items).map(x => `<tr><td>${esc(S[x.s]?.name || x.s)}</td><td>${x.cls.map(c => `${esc(c)} (${fmtW(x.w[c])})`).join(', ')}</td><td>${fmtW(x.p)}</td></tr>`).join('') || '<tr><td colspan="3">Tiada agihan</td></tr>'}
+    groupItems(o.items).map(x => `<tr><td>${esc(S[x.s]?.name || x.s)}</td><td>${x.cls.map(c => `${esc(kLbl(id, x.s, c))} – ${fmtW(x.w[c])}`).join(', ')}</td><td>${fmtW(x.p)}</td></tr>`).join('') || '<tr><td colspan="3">Tiada agihan</td></tr>'}
     <tr><th colspan="2" style="text-align:right">JUMLAH</th><th>${o.total}</th></tr></tbody></table>
     ${gk.length ? `<p>Guru Kelas: <b>${esc(gk.join(', '))}</b></p>` : ''}</div>`;
 }
