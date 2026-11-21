@@ -440,7 +440,7 @@ if (theme) document.documentElement.setAttribute('data-theme', theme);
 let D = null, S = {}, T = {}, byId = {}, IDX = {};
 let pending = new Map(), gkPending = new Map();
 let user = null, me = null;       // me = rekod pengguna {email, nama, peranan, subjek, teacher_id}
-let view = 'agihan', curSub = null, curCls = null, bebanOpen = new Set(), bebanSort = 'name', bebanFilter = 'all', bebanQ = '';
+let view = 'agihan', curSub = null, curCls = null, bebanOpen = new Set(), bebanSort = 'name', bebanFilter = 'all', bebanQ = '', bebanSub = '';
 let PG = null, pgQ = '', pgRole = 'all', adminSub = 'versi';
 let VERSI = [], curVersi = null;
 const cv = () => VERSI.find(v => v.id === curVersi);
@@ -797,12 +797,13 @@ function renderBeban() {
   const mine = me?.teacher_id && L[me.teacher_id] ? L[me.teacher_id] : null;
 
   if (bebanQ) rows = rows.filter(r => r.name.toLowerCase().includes(bebanQ.toLowerCase()));
+  if (bebanSub) rows = rows.filter(r => (r.by[bebanSub] || 0) > 0);
   if (bebanFilter !== 'all') rows = rows.filter(r => bebanFilter === 'zero' ? r.total === 0 : r.total > 0 && lvl(r.total) === bebanFilter);
   rows.sort(bebanSort === 'total' ? (a, b) => b.total - a.total : bebanSort === 'bil' ? (a, b) => (a.bil ?? 999) - (b.bil ?? 999) : (a, b) => a.name.localeCompare(b.name, 'ms'));
   const mx = Math.max(cfg.max + 4, ...rows.map(r => r.total));
 
   const body = rows.map(r => {
-    const tags = Object.entries(r.by).map(([c, p]) => `<span class="tag">${esc(c)} <b>${p}</b></span>`).join('');
+    const tags = Object.entries(r.by).map(([c, p]) => `<span class="tag"${c === bebanSub ? ' style="background:var(--brand-soft);color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)"' : ''}>${esc(c)} <b>${p}</b></span>`).join('');
     const det = bebanOpen.has(r.id) ? `<tr class="detail"><td class="hide-sm"></td><td colspan="3">
         <div class="tbl-wrap"><table class="t det-t"><thead><tr><th>Subjek</th><th>Kelas</th><th class="num">Waktu</th></tr></thead><tbody>
         ${groupItems(r.items).map(i => `<tr><td>${esc(S[i.s]?.name || i.s)}</td><td><div class="kw">${i.cls.map(c => `<span class="kwi kc ${kk(c)}">${esc(c)} <b>${fmtW(i.w[c])}</b></span>`).join('')}</div></td><td class="num">${fmtW(i.p)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Tiada agihan</td></tr>'}
@@ -835,6 +836,7 @@ function renderBeban() {
         <select id="bF">
           <option value="all">Semua</option><option value="under">Kurang dari ${cfg.min}</option><option value="ok">Normal</option><option value="over">Lebih dari ${cfg.max}</option><option value="zero">Tiada waktu (${zero})</option>
         </select>
+        <select id="bSub"><option value="">Semua subjek</option>${D.subjects.filter(s => D.allocations.some(a => a.s === s.code)).map(s => `<option value="${s.code}">${esc(s.code)} — ${esc(s.name)}</option>`).join('')}</select>
         <select id="bS"><option value="name">Susun: Nama</option><option value="total">Susun: Waktu ↓</option><option value="bil">Susun: Bil</option></select>
         ${isAdmin() ? `<button class="btn" id="bAdd">+ Guru</button>` : ''}
         <button class="btn" onclick="printBeban()">Cetak</button>
@@ -844,9 +846,10 @@ function renderBeban() {
         <tbody>${body || '<tr><td colspan="4" class="muted pad">Tiada padanan.</td></tr>'}</tbody>
       </table></div>
     </div>`;
-  $('#bF').value = bebanFilter; $('#bS').value = bebanSort;
+  $('#bF').value = bebanFilter; $('#bSub').value = bebanSub; $('#bS').value = bebanSort;
   $('#bQ').oninput = e => { bebanQ = e.target.value; const p = e.target.selectionStart; renderBeban(); const qq = $('#bQ'); qq.focus(); qq.setSelectionRange(p, p); };
   $('#bF').onchange = e => { bebanFilter = e.target.value; renderBeban(); };
+  $('#bSub').onchange = e => { bebanSub = e.target.value; renderBeban(); };
   $('#bS').onchange = e => { bebanSort = e.target.value; renderBeban(); };
   if ($('#bAdd')) $('#bAdd').onclick = () => { $('#addName').value = ''; $('#addErr').textContent = ''; openModal('#mAdd'); setTimeout(() => $('#addName').focus(), 50); };
   $$('tr.clk').forEach(tr => tr.onclick = () => { const t = +tr.dataset.t; bebanOpen.has(t) ? bebanOpen.delete(t) : bebanOpen.add(t); renderBeban(); });
