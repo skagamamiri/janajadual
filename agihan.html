@@ -251,6 +251,50 @@ td.kc-cell{border-left:4px solid var(--kc);background:var(--ks)}
 .radio-c b{display:block}
 .prog{height:6px;border-radius:99px;background:var(--surface-2);overflow:hidden;width:90px;display:inline-block;vertical-align:middle;margin-right:6px}
 .prog i{display:block;height:100%;background:var(--ok)}
+
+/* ===== mudah alih ===== */
+.chip .cs{display:none}
+@media (max-width:600px){
+  .top-in{gap:8px;padding:10px 0 6px}
+  .logo{width:34px;height:34px;border-radius:9px}.logo svg{width:18px;height:18px}
+  .top h1{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .sub{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top-in>div[style*="min-width:0"]{flex:1 1 auto}
+  .top-in .sp{display:none}
+  .ibtn{height:34px;min-width:34px;padding:0 8px}
+  .user{height:34px;padding:0 4px 0 8px;max-width:none}.user>span:not(.role){display:none}
+  nav.tabs button{padding:8px 10px 10px;font-size:13px}
+  main,#main{min-width:0}
+  .card .pad,.pad{padding:12px}
+  .stats{gap:8px}.stat .v{font-size:22px}
+  /* Rumusan Kelas: cip pendek 4 lajur */
+  .kyrs{flex:1 1 100%;min-width:0}
+  .kyr{display:grid!important;grid-template-columns:auto repeat(4,1fr);gap:6px!important;align-items:center}
+  .kyr>span{width:auto!important;white-space:nowrap}
+  .kyr .chip{width:100%;justify-content:center;padding:7px 0;min-width:0;text-align:center}
+  .chip .cf{display:none}.chip .cs{display:inline}
+  /* Beban: sembunyi bar, rincian bertindan */
+  .bar-td,.bar-th{display:none}
+  .crow{grid-template-columns:96px 1fr!important}
+  .det-t thead{display:none}
+  .det-t tr{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .det-t td{border:0!important;padding:0!important}
+  .det-t td:nth-child(2){grid-column:1/-1;grid-row:2}
+  .det-t td:first-child{font-weight:700}
+  /* Jadual kad (Guru Kelas) */
+  table.mcard,table.mcard tbody,table.mcard tr,table.mcard td{display:block;width:100%}
+  table.mcard thead{display:none}
+  table.mcard tr{border-bottom:8px solid var(--bg);padding:0 0 8px}
+  table.mcard td{border:0;padding:3px 12px;display:grid;grid-template-columns:76px 1fr;gap:8px;min-width:0!important}
+  table.mcard td::before{content:attr(data-l);font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;padding-top:2px}
+  table.mcard td.kc-cell{display:flex;align-items:baseline;gap:8px;padding:8px 12px;margin-bottom:4px}
+  table.mcard td.kc-cell::before{content:none}
+  table.mcard td.gk-na{display:none}
+  table.mcard td.gk-sel{grid-template-columns:1fr;padding-top:8px}
+  table.mcard td.gk-sel::before{content:none}
+  .tbl-wrap{-webkit-overflow-scrolling:touch}
+  .modal .box{width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto}
+}
 </style>
 </head>
 <body>
@@ -759,8 +803,8 @@ function renderBeban() {
 
   const body = rows.map(r => {
     const tags = Object.entries(r.by).map(([c, p]) => `<span class="tag">${esc(c)} <b>${p}</b></span>`).join('');
-    const det = bebanOpen.has(r.id) ? `<tr class="detail"><td></td><td colspan="3">
-        <div class="tbl-wrap"><table class="t"><thead><tr><th>Subjek</th><th>Kelas</th><th class="num">Waktu</th></tr></thead><tbody>
+    const det = bebanOpen.has(r.id) ? `<tr class="detail"><td class="hide-sm"></td><td colspan="3">
+        <div class="tbl-wrap"><table class="t det-t"><thead><tr><th>Subjek</th><th>Kelas</th><th class="num">Waktu</th></tr></thead><tbody>
         ${groupItems(r.items).map(i => `<tr><td>${esc(S[i.s]?.name || i.s)}</td><td><div class="kw">${i.cls.map(c => `<span class="kwi kc ${kk(c)}">${esc(c)} <b>${fmtW(i.w[c])}</b></span>`).join('')}</div></td><td class="num">${fmtW(i.p)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Tiada agihan</td></tr>'}
         </tbody></table></div>
         <div class="row" style="margin-top:8px">
@@ -771,7 +815,7 @@ function renderBeban() {
     return `<tr class="clk" data-t="${r.id}"><td class="faint">${r.bil ?? ''}</td>
       <td><b>${esc(r.name)}</b>${r.id === me?.teacher_id ? ' <span class="tag" style="background:var(--brand-soft);color:var(--brand)">anda</span>' : ''}${r.aktif ? '' : ' <span class="tag">tidak aktif</span>'}<div>${tags}</div></td>
       <td class="num"><b>${r.total}</b></td>
-      <td style="width:28%"><div class="bar"><i class="${r.total ? lvl(r.total) : ''}" style="width:${Math.min(100, r.total / mx * 100)}%"></i></div></td></tr>${det}`;
+      <td class="bar-td" style="width:28%"><div class="bar"><i class="${r.total ? lvl(r.total) : ''}" style="width:${Math.min(100, r.total / mx * 100)}%"></i></div></td></tr>${det}`;
   }).join('');
 
   $('#main').innerHTML = `
@@ -796,7 +840,7 @@ function renderBeban() {
         <button class="btn" onclick="printBeban()">Cetak</button>
       </div>
       <div class="tbl-wrap"><table class="t">
-        <thead><tr><th style="width:44px">Bil</th><th>Nama guru &amp; rincian</th><th class="num">Waktu</th><th></th></tr></thead>
+        <thead><tr><th style="width:44px">Bil</th><th>Nama guru &amp; rincian</th><th class="num">Waktu</th><th class="bar-th"></th></tr></thead>
         <tbody>${body || '<tr><td colspan="4" class="muted pad">Tiada padanan.</td></tr>'}</tbody>
       </table></div>
     </div>`;
@@ -821,8 +865,8 @@ function classTeachers(code, cls) {
   return [...new Set(arr.map(eff).filter(v => v != null))].map(nm);
 }
 function renderKelas() {
-  const chips = [1, 2, 3, 4, 5, 6].map(y => `<div class="row" style="gap:6px;margin:3px 0"><span class="faint small" style="width:56px">Tahun ${y}</span>${
-    D.classes.filter(c => parseInt(c) === y).map(c => `<button class="chip kc ${kk(c)}${c === curCls ? ' on' : ''}" data-c="${esc(c)}">${esc(c.split(' ').slice(1).join(' '))}</button>`).join('')}</div>`).join('');
+  const chips = [1, 2, 3, 4, 5, 6].map(y => `<div class="row kyr" style="gap:6px;margin:3px 0"><span class="faint small" style="width:56px">Tahun ${y}</span>${
+    D.classes.filter(c => parseInt(c) === y).map(c => `<button class="chip kc ${kk(c)}${c === curCls ? ' on' : ''}" data-c="${esc(c)}"><span class="cf">${esc(c.split(' ').slice(1).join(' '))}</span><span class="cs">${esc(shortCls(c))}</span></button>`).join('')}</div>`).join('');
   const g = D.guruKelas.find(x => x.cls === curCls);
   let tot = 0;
   const cards = D.subjects.filter(s => IDX[s.code]?.[curCls]).map(s => {
@@ -836,7 +880,7 @@ function renderKelas() {
 
   $('#main').innerHTML = `
     <div class="card pad"><div class="row" style="justify-content:space-between;align-items:flex-start">
-      <div>${chips}</div>
+      <div class="kyrs">${chips}</div>
       <div class="row"><button class="btn" onclick="printRumusan()">Cetak rumusan semua kelas</button></div>
     </div></div>
     <div class="card pad" style="margin-top:16px">
@@ -881,9 +925,9 @@ function renderGuruKelas() {
     D.subjects.forEach(s => (IDX[s.code]?.[c] || []).forEach(a => { const t = eff(a); if (t != null && per(s, c)) ajar.set(t, (ajar.get(t) || 0) + per(s, c)); }));
     const cells = subs.map(s => {
       const x = stOf(s.code, c);
-      if (!gkPapar(s.code, x)) return '<td class="faint">–</td>';
+      if (!gkPapar(s.code, x)) return `<td class="faint gk-na" data-l="${esc(s.code)}">–</td>`;
       const ts = [...new Set((IDX[s.code]?.[c] || []).map(eff).filter(v => v != null))];
-      return `<td>${ts.length ? ts.map(t => `<span${t === cur ? ' style="font-weight:800;color:var(--brand)"' : ''}>${esc(nm(t))}</span>`).join('<br>') : '<span style="color:var(--bad)">kosong</span>'}</td>`;
+      return `<td data-l="${esc(s.code)}">${ts.length ? ts.map(t => `<span${t === cur ? ' style="font-weight:800;color:var(--brand)"' : ''}>${esc(nm(t))}</span>`).join('<br>') : '<span style="color:var(--bad)">kosong</span>'}</td>`;
     }).join('');
     const pilihan = () => {
       const mengajar = [...ajar.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => T[t]).filter(Boolean);
@@ -895,7 +939,7 @@ function renderGuruKelas() {
     };
     const dua = cur != null && kira[cur] > 1;
     return `<tr><td class="kc-cell ${kk(c)}"><b>${esc(c)}</b><div class="faint small">${esc(tahapNama(tahapOf(c)))}</div></td>${cells}
-      <td style="min-width:240px">${g ? `<select data-gk="${esc(c)}" class="${gkPending.has(c) ? 'chg' : ''} ${cur == null ? 'empty' : ''}" style="width:100%"${ed ? '' : ' disabled'}>${pilihan()}</select>
+      <td class="gk-sel" data-l="Guru Kelas" style="min-width:240px">${g ? `<select data-gk="${esc(c)}" class="${gkPending.has(c) ? 'chg' : ''} ${cur == null ? 'empty' : ''}" style="width:100%"${ed ? '' : ' disabled'}>${pilihan()}</select>
         ${cur != null ? `<div class="small faint" style="margin-top:3px">${ajar.has(cur) ? `Mengajar ${ajar.get(cur)} waktu di kelas ini` : '<span style="color:var(--warn)">Tidak mengajar kelas ini</span>'} · beban ${L[cur]?.total || 0}w${dua ? ' · <span style="color:var(--bad)">guru kelas ' + kira[cur] + ' kelas</span>' : ''}</div>` : ''}` : '<span class="faint">—</span>'}</td></tr>`;
   }).join('');
 
@@ -911,7 +955,7 @@ function renderGuruKelas() {
         <div class="sj" style="max-width:none;margin-top:6px">${D.subjects.filter(s => D.tahap.some(t => D.st[t.kod]?.[s.code])).map(s => `<label class="${tambah.includes(s.code) ? 'on' : ''}"><input type="checkbox" data-gkt="${esc(s.code)}" ${tambah.includes(s.code) ? 'checked' : ''}>${esc(s.code)}</label>`).join('')}</div>
       </details>` : ''}
     </div>
-    <div class="card" style="margin-top:16px"><div class="tbl-wrap"><table class="t" id="gkTbl">
+    <div class="card" style="margin-top:16px"><div class="tbl-wrap"><table class="t mcard" id="gkTbl">
       <thead><tr><th>Kelas</th>${subs.map(s => `<th title="${esc(s.name)}">${esc(s.code)}</th>`).join('')}<th>Guru Kelas</th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>`;
   const simpanSet = async (key, value) => {
