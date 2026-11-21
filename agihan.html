@@ -228,6 +228,7 @@ tr.off td{opacity:.5}
 .crow.kc{border-left:4px solid var(--kc);padding-left:12px}
 .crow.kc .cls{color:var(--ink)}
 td.kc-cell{border-left:4px solid var(--kc);background:var(--ks)}
+.kw{display:flex;flex-wrap:wrap;gap:4px}.kwi{display:inline-flex;gap:5px;align-items:baseline;padding:2px 8px;border-radius:6px;font-size:12px;background:var(--ks);border-left:3px solid var(--kc);white-space:nowrap}.kwi b{font-weight:700}
 .chip.kc{border-color:var(--kc);background:var(--ks);color:var(--ink)}
 .chip.kc.on{background:var(--kc);border-color:var(--kc);color:#fff}
 .kbadge{display:inline-flex;align-items:center;gap:6px;background:var(--ks);border:1px solid var(--kc);border-radius:10px;padding:3px 12px}
@@ -760,7 +761,7 @@ function renderBeban() {
     const tags = Object.entries(r.by).map(([c, p]) => `<span class="tag">${esc(c)} <b>${p}</b></span>`).join('');
     const det = bebanOpen.has(r.id) ? `<tr class="detail"><td></td><td colspan="3">
         <div class="tbl-wrap"><table class="t"><thead><tr><th>Subjek</th><th>Kelas</th><th class="num">Waktu</th></tr></thead><tbody>
-        ${groupItems(r.items).map(i => `<tr><td>${esc(S[i.s]?.name || i.s)}</td><td>${esc(i.cls.join(', '))}</td><td class="num">${i.p}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Tiada agihan</td></tr>'}
+        ${groupItems(r.items).map(i => `<tr><td>${esc(S[i.s]?.name || i.s)}</td><td><div class="kw">${i.cls.map(c => `<span class="kwi kc ${kk(c)}">${esc(c)} <b>${fmtW(i.w[c])}</b></span>`).join('')}</div></td><td class="num">${fmtW(i.p)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Tiada agihan</td></tr>'}
         </tbody></table></div>
         <div class="row" style="margin-top:8px">
           <button class="btn" onclick="event.stopPropagation();printSlip(${r.id})">Cetak slip guru</button>
@@ -808,7 +809,8 @@ function renderBeban() {
 }
 function groupItems(items) {
   const m = {};
-  items.forEach(i => { const o = (m[i.s] ||= { s: i.s, cls: [], p: 0 }); if (!o.cls.includes(i.cls)) o.cls.push(i.cls); o.p += i.p; });
+  items.forEach(i => { const o = (m[i.s] ||= { s: i.s, cls: [], p: 0, w: {} }); if (!o.cls.includes(i.cls)) o.cls.push(i.cls); o.w[i.cls] = (o.w[i.cls] || 0) + i.p; o.p += i.p; });
+  Object.values(m).forEach(o => o.cls.sort((a, b) => D.classes.indexOf(a) - D.classes.indexOf(b)));
   const order = D.subjects.map(s => s.code);
   return Object.values(m).sort((a, b) => order.indexOf(a.s) - order.indexOf(b.s));
 }
@@ -1575,7 +1577,7 @@ function slipHTML(id, L) {
   const o = L[id];
   const gk = D.guruKelas.filter(g => gkEff(g) === id).map(g => g.cls);
   return `<div class="pb"><h3 style="margin:0 0 6px">${esc(nm(id))}</h3><table><thead><tr><th>Mata Pelajaran</th><th>Kelas</th><th>Waktu Seminggu</th></tr></thead><tbody>${
-    groupItems(o.items).map(x => `<tr><td>${esc(S[x.s]?.name || x.s)}</td><td>${esc(x.cls.join(', '))}</td><td>${x.p}</td></tr>`).join('') || '<tr><td colspan="3">Tiada agihan</td></tr>'}
+    groupItems(o.items).map(x => `<tr><td>${esc(S[x.s]?.name || x.s)}</td><td>${x.cls.map(c => `${esc(c)} (${fmtW(x.w[c])})`).join(', ')}</td><td>${fmtW(x.p)}</td></tr>`).join('') || '<tr><td colspan="3">Tiada agihan</td></tr>'}
     <tr><th colspan="2" style="text-align:right">JUMLAH</th><th>${o.total}</th></tr></tbody></table>
     ${gk.length ? `<p>Guru Kelas: <b>${esc(gk.join(', '))}</b></p>` : ''}</div>`;
 }
