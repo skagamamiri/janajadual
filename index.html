@@ -88,6 +88,29 @@
   .kad { height:100%; border-radius:8px; padding:4px 5px; color:#fff; cursor:pointer; overflow:hidden; line-height:1.25; display:flex; flex-direction:column; user-select:none; }
   .kad b { font-size:12px; } .kad i { font-style:normal; opacity:.92; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .kad.pilih { outline:3px solid var(--ink); outline-offset:1px; }
+  /* paparan induk */
+  .induk-wrap { max-height:calc(100vh - 230px); overflow:auto; border:1px solid var(--line); border-radius:12px; }
+  .tt.induk { border-spacing:0; width:auto; table-layout:fixed; }
+  .tt.induk col { width:26px; } .tt.induk col.cl { width:132px; }
+  .tt.induk thead th { position:sticky; top:0; z-index:3; background:#fff; border-bottom:1px solid var(--line); }
+  .tt.induk thead tr:nth-child(2) th { top:21px; font-size:9.5px; font-weight:600; }
+  .tt.induk th.hd { font-size:11px; color:var(--ink); border-left:2px solid #94a3b8; }
+  .tt.induk th.rh { position:sticky; left:0; z-index:2; background:#fff; text-align:left; font-size:11px; color:var(--ink); padding:0 6px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); cursor:pointer; white-space:nowrap; overflow:hidden; }
+  .tt.induk thead th.rh { z-index:4; }
+  .tt.induk th.rh span { display:inline-block; max-width:92px; overflow:hidden; text-overflow:ellipsis; vertical-align:middle; }
+  .tt.induk th.rh em { position:absolute; right:6px; top:50%; transform:translateY(-50%); font-style:normal; color:var(--muted); font-weight:600; }
+  .tt.induk tbody th.rh { position:sticky; }
+  .tt.induk tbody th.rh:hover { background:var(--accbg); color:var(--acc); }
+  .tt.induk td { height:22px; border-radius:0; background:#f8fafc; border-right:1px solid #edf1f4; border-bottom:1px solid #e3e9ee; }
+  .tt.induk td.d0, .tt.induk th.d0 { border-left:2px solid #94a3b8; }
+  .tt.induk td.blk { background:#e9eef2; } .tt.induk td.blk:empty::after { content:""; }
+  .tt.induk tbody tr:hover td { filter:brightness(.97); }
+  .kad.ki { border-radius:3px; padding:0 2px; font-size:10px; font-weight:700; line-height:22px; display:block; text-align:center; white-space:nowrap; text-overflow:clip; position:relative; text-shadow:0 1px 1px #0005; }
+  .kad.ki.kolab::after { content:""; position:absolute; right:0; top:0; border-style:solid; border-width:0 8px 8px 0; border-color:transparent #fff transparent transparent; opacity:.9; }
+  .kad.ki .kunci { right:1px; top:-6px; font-size:7px; }
+  .tt.induk td.boleh, .tt.induk td.tukar { outline-offset:-2px; }
+  .modal .sw { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+  .num { text-align:right; }
   .kad.isu { box-shadow:inset 0 0 0 3px #fff, 0 0 0 2px var(--bad); }
   .kad .kunci { position:absolute; right:5px; top:3px; font-size:10px; }
   td.boleh .kad, td.tukar .kad { opacity:.75; }
@@ -187,7 +210,7 @@ let kunciAdmin = ""; try { kunciAdmin = sessionStorage.getItem(K_KUNCI) || ""; }
 /* ================= Keadaan ================= */
 let P = bacaLS(K_LOCAL, null) || E.projekKosong("Jadual Baharu");
 let tab = "ringkasan";
-let paparan = { jenis: "kelas", id: null };
+let paparan = { jenis: "induk-guru", id: null };
 let pilihKad = null;
 let sejarah = [];
 let st = null;
@@ -787,6 +810,7 @@ function kandunganKad(c, jenis) {
   return `<b>${esc(s.kod)}</b><i>${esc(baris2)}</i>`;
 }
 function tJadual() {
+  if (/^induk/.test(paparan.jenis)) return tInduk();
   const list = senaraiEntiti(paparan.jenis);
   if (!list.find(x => x[0] === paparan.id)) paparan.id = list.length ? list[0][0] : null;
   const t = P.tetapan, S = E.bilSlot(t), D = t.hari.length;
@@ -827,7 +851,7 @@ function tJadual() {
   const idx = list.findIndex(x => x[0] === paparan.id);
   return `<div class="card">
     <div class="row">
-      <select id="jJenis">${[["kelas", "Kelas"], ["guru", "Guru"], ["bilik", "Bilik"]].map(([v, n]) => `<option value="${v}" ${paparan.jenis === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <select id="jJenis">${JENIS_JADUAL.map(([v, n]) => `<option value="${v}" ${paparan.jenis === v ? "selected" : ""}>${n}</option>`).join("")}</select>
       <button class="mini" id="jPrev"><i class="fa-solid fa-chevron-left"></i></button>
       <select id="jId" class="grow">${list.map(([id, n]) => `<option value="${id}" ${id === paparan.id ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
       <button class="mini" id="jNext"><i class="fa-solid fa-chevron-right"></i></button>
@@ -837,12 +861,84 @@ function tJadual() {
       <span class="muted small">${idx + 1}/${list.length}</span></div>
   </div>`;
 }
+const JENIS_JADUAL = [["induk-guru", "Semua guru (induk)"], ["induk-kelas", "Semua kelas (induk)"], ["kelas", "Satu kelas"], ["guru", "Satu guru"], ["bilik", "Satu bilik"]];
+let indukHari = -1; // -1 = semua hari
+/* Paparan induk (gaya aSc): baris = semua guru / semua kelas, lajur = hari × waktu */
+function barisInduk(jenis) {
+  return jenis === "induk-guru"
+    ? P.guru.slice().sort((a, b) => a.nama.localeCompare(b.nama)).map(g => ({ id: g.id, lbl: g.singkatan || g.nama, nama: g.nama, occ: st.guruOcc[g.id], tiada: st.tiada[g.id] }))
+    : P.kelas.slice().sort((a, b) => a.kod.localeCompare(b.kod)).map(k => ({ id: k.id, lbl: k.kod, nama: k.kod + (k.nama ? " " + k.nama : ""), occ: st.kelasOcc[k.id], av: st.avail[k.id] }));
+}
+function tInduk() {
+  const jenis = paparan.jenis, t = P.tetapan, S = st.S, D = st.D;
+  const hariL = indukHari >= 0 && indukHari < D ? [indukHari] : [...Array(D).keys()];
+  const isuSet = new Set(E.semakSemua(P).flatMap(i => i.kad));
+  const rows = barisInduk(jenis);
+  const kadDi = (c, rowId) => { const p = st.pel[c.pel], sb = subjekOf(p.subjek);
+    const teks = jenis === "induk-guru" ? namaKelas(p.kelas) : sb.kod;
+    const kolab = p.guru.length > 1;
+    const tip = `${sb.kod} ${namaKelas(p.kelas)} • ${p.guru.map(singGuru).join(" / ")} • ${t.hari[c.hari]} ${E.masaSlot(t, c.slot)} (${c.len} masa)${c.kunci ? " • berkunci" : ""}`;
+    return `<div class="kad ki ${kolab ? "kolab" : ""} ${pilihKad === c.id ? "pilih" : ""} ${isuSet.has(c.id) ? "isu" : ""}" draggable="true" data-kad="${c.id}" title="${esc(tip)}" style="background:${esc(sb.warna)}">${esc(teks)}${c.kunci ? `<span class="kunci"><i class="fa-solid fa-lock"></i></span>` : ""}</div>`; };
+  let h = `<table class="tt induk" style="width:${132 + hariL.length * S * 26}px"><colgroup><col class="cl">${hariL.map(() => `<col span="${S}">`).join("")}</colgroup>
+    <thead><tr><th class="rh" rowspan="2">${jenis === "induk-guru" ? "Guru" : "Kelas"}</th>${hariL.map(d => `<th colspan="${S}" class="hd">${esc(t.hari[d])}</th>`).join("")}</tr>
+    <tr>${hariL.map(() => Array.from({ length: S }, (_, x) => `<th class="sn${x === 0 ? " d0" : ""}" title="${E.masaSlot(t, x)}">${x + 1}</th>`).join("")).join("")}</tr></thead><tbody>`;
+  for (const r of rows) {
+    const bil = P.kad.reduce((a, c) => { const p = st.pel[c.pel]; return a + (p && (jenis === "induk-guru" ? p.guru.includes(r.id) : p.kelas === r.id) ? c.len : 0); }, 0);
+    h += `<tr><th class="rh" data-baris="${r.id}" title="${esc(r.nama)} — ${bil} masa"><span>${esc(r.lbl)}</span><em>${bil}</em></th>`;
+    for (const d of hariL) {
+      for (let x = 0; x < S; x++) {
+        const id = r.occ && r.occ[d][x];
+        const cls = x === 0 ? "d0" : "";
+        if (id) {
+          const c = st.kad[id];
+          if (c.slot !== x && x !== 0) continue; // sudah diliputi colspan
+          const span = Math.min(c.len - (x - c.slot), S - x);
+          h += `<td colspan="${span}" class="${cls}" data-e="${r.id}" data-d="${d}" data-s="${x}">${kadDi(c, r.id)}</td>`;
+          x += span - 1;
+        } else {
+          const blk = r.av && !r.av[d][x], td = r.tiada && r.tiada[d][x];
+          h += `<td class="${cls}${blk ? " blk" : ""}${td ? " tiada" : ""}" data-e="${r.id}" data-d="${d}" data-s="${x}"></td>`;
+        }
+      }
+    }
+    h += `</tr>`;
+  }
+  h += `</tbody></table>`;
+  const belum = P.kad.filter(c => c.hari < 0 && st.pel[c.pel]);
+  const tray = belum.length ? `<h3>Belum diletak (${belum.length})</h3><div class="tray">${belum.slice(0, 300).map(c => { const p = st.pel[c.pel], sb = subjekOf(p.subjek); return `<span class="chip ${pilihKad === c.id ? "pilih" : ""}" draggable="true" data-kad="${c.id}" style="background:${esc(sb.warna)}">${esc(sb.kod)} ${esc(namaKelas(p.kelas))} • ${esc(p.guru.map(singGuru).join("/"))} • ${c.len}</span>`; }).join("")}</div>` : `<p class="muted small"><span class="pill ok">Semua kad sudah diletak</span></p>`;
+  return `<div class="card">
+    <div class="row">
+      <select id="jJenis">${JENIS_JADUAL.map(([v, n]) => `<option value="${v}" ${paparan.jenis === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <select id="jHari"><option value="-1">Semua hari</option>${t.hari.map((x, d) => `<option value="${d}" ${indukHari === d ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>
+      <span class="muted small grow">${rows.length} ${jenis === "induk-guru" ? "guru" : "kelas"} • ketik nama untuk senarai pelajaran</span>
+    </div>
+    <div class="scroll induk-wrap" style="margin-top:10px">${h}</div>${tray}
+    <p class="muted small">Warna ikut subjek; kad bertanda segi tiga = kolaborasi (lebih seorang guru). Ketik kad untuk pilih, kemudian ketik petak <span class="pill ok">hijau</span> (bebas) atau <span class="pill warn">kuning</span> (tukar/tolak). Di komputer boleh seret &amp; lepas.</p>
+  </div>`;
+}
+function dlgKontrak(jenis, id) {
+  const isGuru = jenis === "induk-guru" || jenis === "guru";
+  const pel = P.pelajaran.filter(p => isGuru ? p.guru.includes(id) : p.kelas === id)
+    .sort((a, b) => subjekOf(a.subjek).kod.localeCompare(subjekOf(b.subjek).kod) || namaKelas(a.kelas).localeCompare(namaKelas(b.kelas)));
+  const nama = isGuru ? namaGuru(id) : namaKelas(id);
+  let jum = 0, letak = 0;
+  const rows = pel.map(p => { const sb = subjekOf(p.subjek), kads = st.kadPel[p.id] || [], m = Number(p.masa || 0); jum += m;
+    const dl = kads.filter(c => c.hari >= 0).reduce((a, c) => a + c.len, 0); letak += dl;
+    return `<tr><td><span class="sw" style="background:${esc(sb.warna)}"></span>${esc(sb.kod)}</td><td>${esc(p.guru.map(singGuru).join(" / ") || "—")}</td><td>${esc(namaKelas(p.kelas))}</td><td class="num">${m}</td><td>${esc(kads.map(c => c.len).join("+") || "—")}</td><td class="num">${dl === m ? `<span class="pill ok">${dl}</span>` : `<span class="pill warn">${dl}/${m}</span>`}</td></tr>`; }).join("");
+  modal(`<h3 style="margin-top:0">${isGuru ? "Kontrak guru" : "Pelajaran kelas"}: ${esc(nama)}</h3>
+    <div class="scroll"><table class="simple"><thead><tr><th>Subjek</th><th>Guru</th><th>Kelas</th><th class="num">Masa</th><th>Pecahan</th><th class="num">Diletak</th></tr></thead><tbody>${rows || `<tr><td colspan="6" class="muted">Tiada pelajaran</td></tr>`}</tbody>
+    <tfoot><tr><th colspan="3" style="text-align:right">Jumlah</th><th class="num">${jum}</th><th></th><th class="num">${letak}</th></tr></tfoot></table></div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button data-tutup>Tutup</button><button class="pri" id="kBuka"><i class="fa-solid fa-table-cells"></i> Buka jadual ${isGuru ? "guru" : "kelas"} ini</button></div>`,
+    box => { box.querySelector("#kBuka").onclick = () => { tutupModal(); lihatEntiti(isGuru ? "guru" : "kelas", id); }; });
+}
 function kunciSemuaEntiti(v) { if (!paparan.id) return; snap(); kadEntiti(paparan.jenis, paparan.id).forEach(c => { if (c.hari >= 0) c.kunci = v; }); ditukar(); render(); }
 
 function lepasRenderJadual() {
   const isi = $("#isi");
   const tukarId = id => { paparan.id = id; pilihKad = null; render(); };
   const jj = $("#jJenis"); if (jj) jj.onchange = e => { paparan = { jenis: e.target.value, id: null }; pilihKad = null; render(); };
+  const jh = $("#jHari"); if (jh) jh.onchange = e => { indukHari = +e.target.value; render(); };
+  $$(".tt.induk th[data-baris]").forEach(th => th.onclick = () => dlgKontrak(paparan.jenis, th.dataset.baris));
   const ji = $("#jId"); if (ji) ji.onchange = e => tukarId(e.target.value);
   const list = senaraiEntiti(paparan.jenis), idx = list.findIndex(x => x[0] === paparan.id);
   const jp = $("#jPrev"); if (jp) jp.onclick = () => list.length && tukarId(list[(idx - 1 + list.length) % list.length][0]);
@@ -855,16 +951,18 @@ function tandaPetak() {
   const c = st.kad[pilihKad]; if (!c) return;
   const p = st.pel[c.pel]; if (!p) return;
   // hanya tandakan jika paparan semasa berkaitan dengan kad
-  const kait = paparan.jenis === "kelas" ? p.kelas === paparan.id : paparan.jenis === "guru" ? p.guru.includes(paparan.id) : p.bilik === paparan.id;
+  const induk = /^induk/.test(paparan.jenis);
+  const kait = induk || (paparan.jenis === "kelas" ? p.kelas === paparan.id : paparan.jenis === "guru" ? p.guru.includes(paparan.id) : p.bilik === paparan.id);
   if (!kait) return;
+  const baris = paparan.jenis === "induk-guru" ? p.guru : paparan.jenis === "induk-kelas" ? [p.kelas] : null;
   const d0 = c.hari, s0 = c.slot;
   if (d0 >= 0) E.cabut(st, c);
   for (let d = 0; d < st.D; d++) for (let s = 0; s + c.len <= st.S; s++) {
     const k = E.pertembungan(st, c, d, s); if (!k) continue;
     if (k.some(id => st.kad[id].kunci)) continue;
-    const td = $(`.tt td[data-d="${d}"][data-s="${s}"]`); if (!td) continue;
     if (d === d0 && s === s0) continue;
-    td.classList.add(k.length ? "tukar" : "boleh");
+    const tds = baris ? baris.map(e => $(`.tt td[data-e="${e}"][data-d="${d}"][data-s="${s}"]`)).filter(Boolean) : [$(`.tt td[data-d="${d}"][data-s="${s}"]`)].filter(Boolean);
+    tds.forEach(td => td.classList.add(k.length ? "tukar" : "boleh"));
   }
   if (d0 >= 0) E.pasang(st, c, d0, s0);
 }

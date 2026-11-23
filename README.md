@@ -7,7 +7,7 @@ HTML + JavaScript, simpanan Supabase. UI dalam Bahasa Melayu.
 
 | Fail | Fungsi |
 |---|---|
-| `index.html` | Aplikasi: Tetapan, Guru, Kelas, Subjek & Bilik, Agihan, Jana, Jadual (editor), Cetak & Terbit |
+| `index.html` | Aplikasi: Tetapan, Guru, Kelas, Subjek & Bilik, Agihan, Jana, Jadual (editor + paparan induk semua guru/kelas gaya aSc), Cetak & Terbit |
 | `jana-jadual-engine.js` | Enjin: model data, kekangan, penjana automatik, import/eksport format `jadual.html` |
 | `supabase/skema.sql` | Jadual `tt_projek`, `tt_terbit`, `tt_kunci` + fungsi RPC berkata laluan |
 | `agihan.html` | **Agihan Guru Mata Pelajaran** — sistem agihan guru (lihat bahagian di bawah) |
