@@ -632,12 +632,36 @@ function tambahTahap() { snap(); P.tetapan.tahap.push({ id: E.uid("T"), nama: "T
 function padamTahap(i) { if (P.tetapan.tahap.length < 2) return toast("Perlu sekurang-kurangnya satu tahap"); if (!confirm("Padam tahap ini?")) return; snap(); P.tetapan.tahap.splice(i, 1); buangKadLuarGrid(); ditukar(); render(); }
 function tambahAcara() { snap(); P.tetapan.acara.push({ id: E.uid("a"), nama: "ACARA", hari: [], mula: P.tetapan.mulaGrid, tamat: E.masaSlot(P.tetapan, 1), tahap: [], guru: "" }); ditukar(); render(); }
 function jadualLoceng(arr, ti) {
-  return `<div class="scroll"><table class="simple loceng"><tr><th>Waktu</th><th>Mula</th><th>Tamat</th><th class="num">Minit</th></tr>${arr.map((x, i) => `<tr><td>${i + 1}</td>
+  const th = ti >= 0 ? P.tetapan.tahap[ti] : null;
+  const rehatDi = x => th && (th.rehat || []).some(r => E.toMin(x.mula) < E.toMin(r.tamat) && E.toMin(x.tamat) > E.toMin(r.mula));
+  return `<div class="scroll"><table class="simple loceng"><tr><th>Waktu</th><th>Mula</th><th>Tamat</th><th class="num">Minit</th><th></th></tr>${arr.map((x, i) => `<tr${rehatDi(x) ? ` style="background:#f1f5f9"` : ""}><td>${i + 1}</td>
     <td><input type="time" data-lc="${i}" data-lt="${ti}" data-k="mula" value="${esc(x.mula)}"></td><td><input type="time" data-lc="${i}" data-lt="${ti}" data-k="tamat" value="${esc(x.tamat)}"></td>
-    <td class="num">${E.toMin(x.tamat) - E.toMin(x.mula)}</td></tr>`).join("")}</table></div>`;
+    <td class="num">${E.toMin(x.tamat) - E.toMin(x.mula)}</td>
+    <td style="text-align:right">${th
+      ? `<button class="mini" onclick="tutupWaktuTahap(${ti},${i})" title="Jadikan waktu ini rehat / tiada kelas untuk tahap ini sahaja">${rehatDi(x) ? `<i class="fa-solid fa-rotate-left"></i> Buka` : `<i class="fa-solid fa-ban"></i> Tutup`}</button>`
+      : `<button class="mini red" onclick="ubahLoceng('padam',${i})" title="Buang waktu ini (semua tahap)"><i class="fa-solid fa-trash"></i></button>`}</td></tr>`).join("")}</table></div>`;
 }
-function ubahLoceng(aksi) {
-  const t = P.tetapan; snap();
+// tahap: tutup/buka satu waktu dengan menambah/membuang rehat yang meliputi waktu itu
+function tutupWaktuTahap(ti, i) {
+  const t = P.tetapan, th = t.tahap[ti], x = E.locengTahap(t, th)[i]; snap();
+  const a = E.toMin(x.mula), b = E.toMin(x.tamat);
+  const kena = (th.rehat || []).filter(r => a < E.toMin(r.tamat) && b > E.toMin(r.mula));
+  if (kena.length) th.rehat = th.rehat.filter(r => !kena.includes(r));
+  else (th.rehat = th.rehat || []).push({ mula: x.mula, tamat: x.tamat });
+  th.rehat.sort((p, q) => E.toMin(p.mula) - E.toMin(q.mula));
+  buangKadLuarGrid(); ditukar(); render();
+}
+function ubahLoceng(aksi, idx) {
+  const t = P.tetapan;
+  if (aksi === "padam") {
+    if (t.slotMasa.length < 2) return toast("Perlu sekurang-kurangnya satu waktu");
+    if (!confirm(`Buang waktu ${idx + 1} (${t.slotMasa[idx].mula}–${t.slotMasa[idx].tamat}) bagi SEMUA tahap? Kad pada waktu itu akan dikeluarkan.`)) return;
+    snap();
+    t.slotMasa.splice(idx, 1); t.tahap.forEach(th => { if (th.slotMasa && th.slotMasa.length > idx) th.slotMasa.splice(idx, 1); });
+    P.kad.forEach(c => { if (c.hari < 0) return; if (c.slot <= idx && c.slot + c.len > idx) { c.hari = -1; c.slot = -1; } else if (c.slot > idx) c.slot--; });
+    buangKadLuarGrid(); ditukar(); render(); return;
+  }
+  snap();
   if (aksi === "sesuai") t.slotMasa = E.slotSeragam(t);
   if (aksi === "seragam") { if (!confirm("Kembali ke grid seragam? Waktu loceng khas (termasuk tahap) akan dibuang.")) return; delete t.slotMasa; t.tahap.forEach(th => delete th.slotMasa); }
   if (aksi === "tambah" || aksi === "buang") {
