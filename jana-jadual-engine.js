@@ -114,6 +114,19 @@
     return sum === Number(p.masa) ? p.pecahan.slice() : pecahanLalai(p.masa);
   }
 
+  /* Pola sehari subjek, cth "2+1" = setiap hari maksimum satu blok 2 masa + satu blok 1 masa */
+  function polaSubjek(x) { const a = String((x && x.polaHarian) || "").split(/[+,\s]+/).map(Number).filter(n => n > 0); return a.length ? a : null; }
+  function kiraPola(pola) { const m = {}; for (const n of pola) m[n] = (m[n] || 0) + 1; return m; }
+  // pecahan blok ikut pola: ulang pola sebanyak mungkin, baki diisi blok pola terbesar yang muat
+  function pecahanPola(masa, pola) {
+    masa = Math.max(0, Math.round(masa)); const out = [], jum = pola.reduce((a, b) => a + b, 0);
+    let hari = Math.floor(masa / jum), baki = masa - hari * jum;
+    for (let i = 0; i < hari; i++) out.push(...pola);
+    const urut = [...pola].sort((a, b) => b - a);
+    while (baki > 0) { const b = urut.find(n => n <= baki) || 1; out.push(b); baki -= b; }
+    return out.sort((a, b) => b - a);
+  }
+
   /* Selaraskan senarai kad dengan pelajaran: kekalkan kad sedia ada yang padan panjang */
   function selaraskanKad(P) {
     const lama = {};
@@ -169,13 +182,15 @@
       guru: Object.fromEntries(P.guru.map(g => [g.id, g])),
       kad: Object.fromEntries(P.kad.map(c => [c.id, c])),
       avail: {}, kelasOcc: {}, kelasKump: {}, guruOcc: {}, bilikOcc: {}, tiada: {}, tiadaSub: {}, tiadaBilik: {},
-      harian: {}, kadPel: {}, kadKelas: {}, had: {}, hub: {}, tugas: tugasAcara(P)
+      harian: {}, kadPel: {}, kadKelas: {}, had: {}, hub: {}, tugas: tugasAcara(P), pola: {}
     };
     const subj = Object.fromEntries((P.subjek || []).map(x => [x.id, x]));
     for (const c of P.kad) (st.kadPel[c.pel] = st.kadPel[c.pel] || []).push(c);
     for (const p of P.pelajaran) {
       const sm = subj[p.subjek] && Number(subj[p.subjek].maksSehari);
-      st.had[p.id] = Number(p.maksSehari) > 0 ? Number(p.maksSehari) : sm > 0 ? sm : Math.max(t.maksBlokSehari || 1, Math.ceil((st.kadPel[p.id] || []).length / D));
+      const pola = polaSubjek(subj[p.subjek]);
+      if (pola) st.pola[p.id] = kiraPola(pola);
+      st.had[p.id] = pola && !(Number(p.maksSehari) > 0) ? pola.length : Number(p.maksSehari) > 0 ? Number(p.maksSehari) : sm > 0 ? sm : Math.max(t.maksBlokSehari || 1, Math.ceil((st.kadPel[p.id] || []).length / D));
       for (const k of kelasPel(p)) for (const c of st.kadPel[p.id] || []) (st.kadKelas[k] = st.kadKelas[k] || []).push(c);
     }
     for (const k of P.kelas) {
@@ -298,6 +313,13 @@
       const buang = sama.find(o => !o.kunci) || sama[0];
       set.add(buang.id);
     }
+    // pola sehari (cth 2+1): bilangan blok setiap panjang sehari tidak melebihi pola
+    const pola = st.pola[c.pel];
+    if (pola) {
+      const samaLen = (st.kadPel[c.pel] || []).filter(o => o.id !== c.id && o.hari === d && o.len === c.len && !set.has(o.id));
+      const had = pola[c.len] || 0;
+      if (samaLen.length >= had) { const lebih = samaLen.length - had + 1; samaLen.sort((a, b) => a.kunci - b.kunci).slice(0, lebih).forEach(o => set.add(o.id)); }
+    }
     // hubungan: subjek berkaitan tidak boleh pada hari yang sama (kelas sama)
     const hub = st.hub[p.subjek];
     if (hub) for (const kl of kls) for (const o of st.kadKelas[kl] || []) {
@@ -370,7 +392,14 @@
       }
     }
     // sebarkan blok pelajaran sama ke hari berlainan
-    sc += (st.harian[harianKey(c, d)] || 0) * 4;
+    const pola = st.pola[c.pel];
+    if (pola) {
+      // utamakan hari yang sudah ada blok pelengkap (cth blok 1 di hari yang ada blok 2), elak hari yang sudah lengkap
+      const lain = (st.kadPel[c.pel] || []).filter(o => o.id !== c.id && o.hari === d);
+      const lengkap = Object.entries(pola).every(([n, k]) => lain.filter(o => o.len === +n).length + (c.len === +n ? 1 : 0) >= k);
+      const w = st.polaBerat === undefined ? 1 : st.polaBerat;
+      sc += w * (lain.length ? (lengkap ? -10 : 0) : 6);
+    } else sc += (st.harian[harianKey(c, d)] || 0) * 4;
     return sc;
   }
 
@@ -385,6 +414,7 @@
     opsyen = opsyen || {};
     selaraskanKad(P);
     const st = binaKeadaan(P);
+    st.polaBerat = 0.5; // fasa jana: pola sehari diambil kira ringan; dikemaskan selepas itu
     const kad = P.kad;
     // kosongkan kad tidak berkunci (kecuali opsyen.teruskan)
     if (!opsyen.teruskan) for (const c of kad) if (!c.kunci && c.hari >= 0) cabut(st, c);
@@ -468,6 +498,7 @@
 
   /* Penambahbaikan kualiti: alih kad ke kedudukan bebas pertembungan yang skor lembutnya lebih baik */
   function kemaskan(st, n) {
+    st.polaBerat = 1;
     const kad = st.P.kad.filter(c => !c.kunci && c.hari >= 0);
     if (!kad.length) return 0;
     let baik = 0;
@@ -487,6 +518,42 @@
     return baik;
   }
 
+  /* Baiki pola sehari (cth 2+1): cuba pindahkan blok yang belum berpasangan ke hari yang ada blok pelengkap,
+     terus ke petak kosong atau dengan menukar tempat dengan satu kad lain. */
+  function baikiPola(st, pusingan) {
+    const P = st.P; let baik = 0;
+    const lengkapHari = (pel, d) => { const m = st.pola[pel]; const per = {}; for (const o of st.kadPel[pel] || []) if (o.hari === d) per[o.len] = (per[o.len] || 0) + 1; return Object.entries(m).every(([n, k]) => (per[n] || 0) >= k); };
+    const perlu = (pel, d, len) => { const m = st.pola[pel]; const ada = (st.kadPel[pel] || []).filter(o => o.hari === d && o.len === len).length; return ada < (m[len] || 0) && (st.kadPel[pel] || []).some(o => o.hari === d); };
+    for (let r = 0; r < (pusingan || 3); r++) {
+      for (const pel of Object.keys(st.pola)) {
+        for (const c of st.kadPel[pel] || []) {
+          if (c.kunci || c.hari < 0 || lengkapHari(pel, c.hari)) continue;
+          const d0 = c.hari, s0 = c.slot; let ok = false;
+          for (let d = 0; d < st.D && !ok; d++) {
+            if (d === d0 || !perlu(pel, d, c.len)) continue;
+            for (let s = 0; s + c.len <= st.S && !ok; s++) {
+              cabut(st, c);
+              const k = pertembungan(st, c, d, s);
+              if (k && k.length === 0) { pasang(st, c, d, s); ok = true; break; }
+              if (k && k.length === 1) {
+                const o = st.kad[k[0]];
+                if (!o.kunci && o.pel !== c.pel && o.len === c.len) {
+                  const od = o.hari, os = o.slot; cabut(st, o); pasang(st, c, d, s);
+                  const k2 = pertembungan(st, o, d0, s0);
+                  if (k2 && k2.length === 0) { pasang(st, o, d0, s0); ok = true; break; }
+                  cabut(st, c); pasang(st, o, od, os);
+                }
+              }
+              pasang(st, c, d0, s0);
+            }
+          }
+          if (ok) baik++;
+        }
+      }
+    }
+    return baik;
+  }
+
   function jumlahSkor(st) {
     let t = 0;
     for (const c of st.P.kad) if (c.hari >= 0) { const d = c.hari, s = c.slot; cabut(st, c); t += skorLembut(st, c, d, s); pasang(st, c, d, s); }
@@ -498,6 +565,7 @@
     while (g.jalan(500)) { /* teruskan */ }
     const r = g.tamat();
     r.kemas = kemaskan(g.st, (opsyen && opsyen.kemas) || 3000);
+    r.pola = 0; for (let i = 0; i < 8; i++) { r.pola += baikiPola(g.st, 2); kemaskan(g.st, 600); }
     return r;
   }
 
@@ -550,6 +618,19 @@
       for (const [key, arr] of Object.entries(per)) if (new Set(arr.map(c => pel[c.pel].subjek)).size > 1) isu.push({ jenis: "hubungan", kad: arr.map(c => c.id), hari: +key.split("|")[1], slot: -1, siapa: key.split("|")[0] });
     }
     void bil;
+    const subjM = Object.fromEntries((P.subjek || []).map(x => [x.id, x]));
+    for (const p of P.pelajaran) {
+      const pola = polaSubjek(subjM[p.subjek]); if (!pola) continue; const m = kiraPola(pola);
+      for (let d = 0; d < D; d++) {
+        const kad = P.kad.filter(c => c.pel === p.id && c.hari === d), per = {};
+        kad.forEach(c => per[c.len] = (per[c.len] || 0) + 1);
+        if (Object.entries(per).some(([n, k]) => k > (m[n] || 0))) isu.push({ jenis: "pola", kad: kad.map(c => c.id), hari: d, slot: -1, siapa: p.kelas });
+      }
+      // lembut: bilangan hari yang ikut pola penuh kurang daripada yang mungkin
+      const jum = pola.reduce((a, b) => a + b, 0), sasar = Math.min(D, Math.floor(Number(p.masa || 0) / jum));
+      let penuh = 0; for (let d = 0; d < D; d++) { const per = {}; P.kad.forEach(c => { if (c.pel === p.id && c.hari === d) per[c.len] = (per[c.len] || 0) + 1; }); if (Object.entries(m).every(([n, k]) => (per[n] || 0) >= k)) penuh++; }
+      if (P.kad.some(c => c.pel === p.id && c.hari >= 0) && penuh < sasar) isu.push({ jenis: "polaLembut", kad: [], hari: -1, slot: -1, siapa: p.kelas, subjek: p.subjek, n: sasar - penuh });
+    }
     const tg = tugasAcara(P);
     if (tg.length) {
       const st = binaKeadaan(P);
@@ -722,7 +803,8 @@
       const masa = Math.round(Number(r.masa) || 0);
       if (!masa) { laporan.ralat.push("Baris " + (i + 2) + ": bilangan masa tidak sah"); return; }
       const pec = String(r.pecahan || "").split(/[+,\s]+/).map(Number).filter(n => n > 0);
-      P.pelajaran.push({ id: uid("p"), kelas: k.id, subjek: s.id, guru: gs, bilik: b, masa, pecahan: pec.reduce((a, c) => a + c, 0) === masa ? pec : pecahanLalai(masa) });
+      const pola = polaSubjek(s);
+      P.pelajaran.push({ id: uid("p"), kelas: k.id, subjek: s.id, guru: gs, bilik: b, masa, pecahan: pec.reduce((a, c) => a + c, 0) === masa ? pec : pola ? pecahanPola(masa, pola) : pecahanLalai(masa) });
       laporan.tambah++;
     });
     selaraskanKad(P);
@@ -807,7 +889,7 @@
   const API = {
     kodKelasAgihan, barisDariAgihanGuru,
     HARI_LALAI, toMin, toHHMM, uid, tetapanLalai, projekKosong, bilSlot, masaSlot, masaTamat, slotSeragam, locengTahap, tahapKelas, availKelas,
-    kelasPel, kumpPel, bilikCalon, pilihBilik, tiadaSet, tugasAcara, guruTugas,
+    polaSubjek, pecahanPola, baikiPola, kelasPel, kumpPel, bilikCalon, pilihBilik, tiadaSet, tugasAcara, guruTugas,
     pecahanLalai, pecahanSah, selaraskanKad, binaKeadaan, pasang, cabut, strukturOK, pertembungan,
     Penjana, janaSync, kemaskan, jumlahSkor, skorLembut, semakSemua, importJadualHtml, eksportJadualHtml, parseCSV, barisDariCSV, importAgihan
   };

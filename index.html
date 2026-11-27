@@ -311,7 +311,7 @@ function kemasStatus() {
   if (P._awanId && !berubah) { s.className = "pill ok"; s.textContent = "Awan ✓"; }
   else if (P._awanId) { s.className = "pill warn"; s.textContent = "Belum disimpan"; }
   else { s.className = "pill"; s.textContent = "Tempatan"; }
-  const isu = E.semakSemua(P).length, belum = P.kad.filter(c => c.hari < 0).length;
+  const isu = semakKeras().length, belum = P.kad.filter(c => c.hari < 0).length;
   const pi = $("#pillIsu");
   pi.className = "pill " + (isu ? "bad" : belum ? "warn" : P.kad.length ? "ok" : "");
   pi.textContent = isu ? isu + " pertembungan" : belum ? belum + " belum diletak" : P.kad.length ? "Lengkap" : "Kosong";
@@ -351,7 +351,7 @@ function bebanGuru(gid) { return P.pelajaran.filter(p => p.guru.includes(gid)).r
 
 /* ================= Tab: Ringkasan ================= */
 function tRingkasan() {
-  const isu = E.semakSemua(P), diletak = P.kad.filter(c => c.hari >= 0).length;
+  const isu = E.semakSemua(P), keras = isu.filter(i => !ISU_LEMBUT.includes(i.jenis)), diletak = P.kad.filter(c => c.hari >= 0).length;
   const kelasRows = P.kelas.slice().sort((a, b) => a.kod.localeCompare(b.kod)).map(k => {
     const a = masaKelas(k.id), s = slotTersedia(k);
     const cls = a > s ? "bad" : a < s ? "warn" : "ok";
@@ -367,7 +367,7 @@ function tRingkasan() {
       <div class="stat"><b>${P.kelas.length}</b><span>Kelas</span></div>
       <div class="stat"><b>${P.pelajaran.length}</b><span>Pelajaran (agihan)</span></div>
       <div class="stat"><b>${diletak}/${P.kad.length}</b><span>Kad diletak</span></div>
-      <div class="stat"><b style="color:${isu.length ? "var(--bad)" : "var(--ok)"}">${isu.length}</b><span>Pertembungan</span></div>
+      <div class="stat"><b style="color:${keras.length ? "var(--bad)" : "var(--ok)"}">${keras.length}</b><span>Pertembungan</span></div>
     </div>
   </div>
   <div class="card">
@@ -385,15 +385,17 @@ function tRingkasan() {
   <div class="card"><h2>Beban guru tertinggi</h2><table class="simple">${guruTop || `<tr><td class="muted">Tiada guru.</td></tr>`}</table></div>`;
 }
 
-const JENIS_ISU = { kelas: "Kelas bertembung", guru: "Guru bertembung", bilik: "Bilik bertembung", luar: "Di luar waktu / rehat / masa tidak tersedia", hadGuru: "Melebihi had masa sehari guru", hubungan: "Hubungan subjek dilanggar", tugasKosong: "Acara tiada guru (waktu sumber kosong)", tugasGuru: "Guru acara mengajar kelas lain pada masa acara", tugasHari: "Guru acara sama lebih sekali (kelas sama)", tugasKelas: "Guru acara sama untuk beberapa kelas" };
+const ISU_LEMBUT = ["polaLembut", "tugasKelas", "tugasKosong"];
+const semakKeras = () => E.semakSemua(P).filter(i => !ISU_LEMBUT.includes(i.jenis));
+const JENIS_ISU = { kelas: "Kelas bertembung", guru: "Guru bertembung", bilik: "Bilik bertembung", luar: "Di luar waktu / rehat / masa tidak tersedia", hadGuru: "Melebihi had masa sehari guru", hubungan: "Hubungan subjek dilanggar", tugasKosong: "Acara tiada guru (waktu sumber kosong)", tugasGuru: "Guru acara mengajar kelas lain pada masa acara", tugasHari: "Guru acara sama lebih sekali (kelas sama)", tugasKelas: "Guru acara sama untuk beberapa kelas", pola: "Melebihi pola sehari subjek", polaLembut: "Pola sehari belum penuh" };
 function htmlSemakan(isu) {
   const belum = P.kad.filter(c => c.hari < 0);
   if (!isu.length && !belum.length) return `<div class="card"><h2>Semakan</h2><p><span class="pill ok">Tiada masalah</span> Semua kad diletak dan semua kekangan dipatuhi.</p></div>`;
   const t = P.tetapan, kira = {};
   isu.forEach(i => kira[i.jenis] = (kira[i.jenis] || 0) + 1);
-  const siapa = i => i.jenis === "tugasHari" ? namaGuru(i.siapa) + " (" + namaKelas(i.kelas) + ")" : i.jenis === "tugasKelas" ? namaGuru(i.siapa) + " (" + i.n + " kelas)" : i.jenis === "guru" || i.jenis === "hadGuru" || i.jenis === "tugasGuru" ? namaGuru(i.siapa) : i.jenis === "bilik" ? namaBilik(i.siapa) : namaKelas(i.siapa);
+  const siapa = i => i.jenis === "polaLembut" ? subjekOf(i.subjek).kod + " " + namaKelas(i.siapa) + " (" + i.n + " hari)" : i.jenis === "tugasHari" ? namaGuru(i.siapa) + " (" + namaKelas(i.kelas) + ")" : i.jenis === "tugasKelas" ? namaGuru(i.siapa) + " (" + i.n + " kelas)" : i.jenis === "guru" || i.jenis === "hadGuru" || i.jenis === "tugasGuru" ? namaGuru(i.siapa) : i.jenis === "bilik" ? namaBilik(i.siapa) : namaKelas(i.siapa);
   const kad = id => { const c = byId(P.kad, id), p = c && byId(P.pelajaran, c.pel); return p ? subjekOf(p.subjek).kod + " " + namaKelasP(p) : "?"; };
-  const rows = isu.slice(0, 40).map(i => `<tr><td><span class="pill ${["luar", "hubungan", "tugasKelas", "tugasKosong"].includes(i.jenis) ? "warn" : "bad"}">${esc(JENIS_ISU[i.jenis] || i.jenis)}</span></td><td>${esc(siapa(i))}</td>
+  const rows = isu.slice(0, 40).map(i => `<tr><td><span class="pill ${["luar", "hubungan", "tugasKelas", "tugasKosong", "polaLembut"].includes(i.jenis) ? "warn" : "bad"}">${esc(JENIS_ISU[i.jenis] || i.jenis)}</span></td><td>${esc(siapa(i))}</td>
     <td>${esc(t.hari[i.hari] || "")}${i.slot >= 0 ? " " + esc(E.masaSlot(t, i.slot)) : ""}</td><td class="small">${esc([...new Set(i.kad)].map(kad).join(", "))}</td></tr>`).join("");
   return `<div class="card"><h2>Semakan (Verification)</h2>
     <div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(kira).map(([j, n]) => `<span class="pill ${j === "luar" || j === "hubungan" ? "warn" : "bad"}">${esc(JENIS_ISU[j] || j)}: ${n}</span>`).join("")}${belum.length ? `<span class="pill warn">${belum.length} kad belum diletak</span>` : ""}</div>
@@ -873,7 +875,9 @@ function dlgSubjek(id) {
   const L = E.locengTahap(t, t.tahap.find(th => thPilih.includes(th.id)) || null);
   const gd = ac ? ac.guruDari : Math.max(0, L.findIndex(z => z.tamat === "09:00"));
   modal(`<h2>${id ? "Edit" : "Tambah"} subjek</h2><div class="grid2"><label class="f">Kod<input id="sK" value="${esc(x.kod)}"></label><label class="f">Nama<input id="sN" value="${esc(x.nama)}"></label><label class="f">Warna<input id="sW" type="color" value="${esc(x.warna)}"></label>
-      <label class="f">Maks blok sehari (0 = ikut tetapan)<input id="sMx" type="number" min="0" max="6" value="${x.maksSehari || 0}"></label></div>
+      <label class="f">Maks blok sehari (0 = ikut tetapan)<input id="sMx" type="number" min="0" max="6" value="${x.maksSehari || 0}"></label>
+      <label class="f">Pola sehari (cth 2+1 = satu blok 2 masa + satu blok 1 masa sehari)<input id="sPola" list="dlPola" placeholder="kosong = tiada pola" value="${esc(x.polaHarian || "")}"><datalist id="dlPola"><option value="2+1"><option value="2"><option value="1+1"><option value="2+2"></datalist></label></div>
+    <p class="muted small" style="margin:4px 0 0">Dengan pola, pecahan blok semua kelas diselaraskan automatik (cth 10 masa → 2+1, 2+1, 2+1 dan baki 1 di hari lain) dan setiap hari tidak melebihi pola.</p>
     <details ${ac ? "open" : ""} style="margin-top:10px"><summary><b>Waktu tetap</b> <span class="muted small">— subjek pada masa tetap setiap hari (bukan dijana), cth Pembentukan Karakter 9:00–9:15</span></summary>
       <label class="item" style="margin:8px 0;cursor:pointer;border-color:var(--acc)"><input type="checkbox" id="sAc" ${ac ? "checked" : ""} style="width:18px;height:18px"> <b>Aktifkan waktu tetap untuk subjek ini</b> <span class="muted small">(mesti ditanda supaya subjek dimasukkan ke jadual)</span></label>
       <div id="sAbox">
@@ -894,6 +898,13 @@ function dlgSubjek(id) {
       const kod = $("#sK", b).value.trim().toUpperCase(); if (!kod) return toast("Kod diperlukan");
       snap(); Object.assign(x, { kod, nama: $("#sN", b).value.trim() || kod, warna: $("#sW", b).value });
       const mx = +$("#sMx", b).value || 0; if (mx) x.maksSehari = mx; else delete x.maksSehari;
+      const polaLama = x.polaHarian || "", polaBaru = $("#sPola", b).value.replace(/\s/g, "");
+      if (polaBaru && E.polaSubjek({ polaHarian: polaBaru })) x.polaHarian = polaBaru; else delete x.polaHarian;
+      if ((x.polaHarian || "") !== polaLama && x.polaHarian) {
+        const pola = E.polaSubjek(x); let n = 0;
+        P.pelajaran.forEach(p => { if (p.subjek !== x.id) return; const pec = E.pecahanPola(p.masa, pola); if (pec.join("+") !== E.pecahanSah(p).join("+")) { p.pecahan = pec; P.kad = P.kad.filter(c => c.pel !== p.id); n++; } });
+        if (n) toast(n + " pelajaran " + x.kod + " dipecah semula ikut pola " + x.polaHarian + " — sila Jana semula");
+      }
       if (sel.size) x.tiada = [...sel]; else delete x.tiada;
       if (!id) P.subjek.push(x);
       // waktu tetap (acara)
@@ -990,7 +1001,7 @@ function dlgPelajaran(id) {
     const modB = () => { const m = ($("input[name=pBm]:checked", b) || {}).value || ""; $("#pB", b).style.display = m === "tetap" ? "" : "none"; $("#pBp", b).style.display = m === "pilihan" ? "" : "none"; };
     $$("input[name=pBm]", b).forEach(i => i.onchange = modB); modB();
     $("#pQ", b).oninput = e => { const q = e.target.value.toLowerCase(); $$("#pG label", b).forEach(l => l.style.display = l.dataset.n.includes(q) ? "" : "none"); };
-    $("#pM", b).oninput = () => { $("#pP", b).value = E.pecahanLalai(+$("#pM", b).value || 0).join("+"); };
+    $("#pM", b).oninput = () => { const pola = E.polaSubjek(subjekOf($("#pS", b).value)); const m = +$("#pM", b).value || 0; $("#pP", b).value = (pola ? E.pecahanPola(m, pola) : E.pecahanLalai(m)).join("+"); };
     $("#pOk", b).onclick = () => {
       const masa = +$("#pM", b).value || 0; if (!masa) return toast("Masa tidak sah");
       const pec = $("#pP", b).value.split(/[+,\s]+/).map(Number).filter(n => n > 0);
@@ -1064,6 +1075,7 @@ function mulaJana() {
     if (lagi) return setTimeout(pusing, 0);
     const r = g.tamat();
     E.kemaskan(g.st, 2500);
+    if (Object.keys(g.st.pola || {}).length) for (let i = 0; i < 8; i++) { E.baikiPola(g.st, 2); E.kemaskan(g.st, 600); }
     r.ms = performance.now() - t0; hasilJana = r; janaJalan = null;
     ditukar(); render();
     toast(r.belum ? `${r.belum} kad belum diletak` : "Jadual lengkap ✓");
@@ -1112,7 +1124,7 @@ function tJadual() {
   const list = senaraiEntiti(paparan.jenis);
   if (!list.find(x => x[0] === paparan.id)) paparan.id = list.length ? list[0][0] : null;
   const t = P.tetapan, S = E.bilSlot(t), D = t.hari.length;
-  const isuSet = new Set(E.semakSemua(P).flatMap(i => i.kad));
+  const isuSet = new Set(semakKeras().flatMap(i => i.kad));
   let grid = `<p class="muted">Tiada data. Tambah ${paparan.jenis} dahulu.</p>`, tray = "";
   if (paparan.id) {
     const kads = kadEntiti(paparan.jenis, paparan.id);
@@ -1173,7 +1185,7 @@ function barisInduk(jenis) {
 function tInduk() {
   const jenis = paparan.jenis, t = P.tetapan, S = st.S, D = st.D;
   const hariL = indukHari >= 0 && indukHari < D ? [indukHari] : [...Array(D).keys()];
-  const isuSet = new Set(E.semakSemua(P).flatMap(i => i.kad));
+  const isuSet = new Set(semakKeras().flatMap(i => i.kad));
   const rows = barisInduk(jenis);
   const kadDi = (c, rowId) => { const p = st.pel[c.pel], sb = subjekOf(p.subjek);
     const teks = jenis === "induk-kelas" ? sb.kod + (p.kumpulan ? "·" + p.kumpulan : "") : namaKelasP(p);
@@ -1350,7 +1362,7 @@ $("#barKeluar").onclick = () => { const c = st.kad[pilihKad]; if (!c || c.kunci)
 
 /* ================= Tab: Cetak & Terbit ================= */
 function tCetak() {
-  const isu = E.semakSemua(P).length, belum = P.kad.filter(c => c.hari < 0).length;
+  const isu = semakKeras().length, belum = P.kad.filter(c => c.hari < 0).length;
   const vid = "v" + new Date().toISOString().slice(2, 10).replace(/-/g, "");
   return `<div class="card"><h2>Cetak</h2><p class="muted small" style="margin-top:0">A4 landskap, satu kelas/guru setiap muka. Pilih "Simpan sebagai PDF" untuk PDF.</p>
     <div class="row"><button onclick="cetak('kelas')"><i class="fa-solid fa-print"></i> Semua kelas</button><button onclick="cetak('guru')"><i class="fa-solid fa-print"></i> Semua guru</button>
@@ -1383,7 +1395,7 @@ async function salinBlokVersi() {
 }
 async function terbitAwan() {
   try {
-    if (E.semakSemua(P).length && !confirm("Jadual masih ada pertembungan. Terbit juga?")) return;
+    if (semakKeras().length && !confirm("Jadual masih ada pertembungan. Terbit juga?")) return;
     const k = await pastikanKunci(), v = blokVersi();
     if (!P._awanId) await simpanAwan();
     await rpc("tt_terbitkan", { p_kunci: k, p_id: v.id, p_label: v.label, p_projek: P._awanId || null, p_data: v.data, p_semasa: $("#vSemasa").checked });
