@@ -40,23 +40,47 @@
     return { versi: 1, nama: nama || "Jadual Baharu", tetapan: tetapanLalai(), guru: [], kelas: [], subjek: [], bilik: [], pelajaran: [], kad: [] };
   }
 
-  /* ---------- grid ---------- */
-  function bilSlot(t) { return Math.max(0, Math.round((toMin(t.tamatGrid) - toMin(t.mulaGrid)) / t.minitSlot)); }
-  function masaSlot(t, i) { return toHHMM(toMin(t.mulaGrid) + i * t.minitSlot); }
+  /* ---------- grid & waktu loceng ----------
+     Lalai: grid seragam (mulaGrid + minitSlot). Pilihan: t.slotMasa = [{mula, tamat}] (waktu loceng sendiri,
+     panjang boleh berbeza, cth 40/45 minit) dan th.slotMasa bagi tahap yang mempunyai loceng berbeza
+     (bilangan slot mesti sama — slot ke-i semua tahap dianggap serentak untuk semakan guru). */
+  function slotSeragam(t) {
+    const g0 = toMin(t.mulaGrid), ms = Number(t.minitSlot) || 30;
+    const n = Math.max(0, Math.round((toMin(t.tamatGrid) - g0) / ms));
+    return Array.from({ length: n }, (_, i) => ({ mula: toHHMM(g0 + i * ms), tamat: toHHMM(g0 + (i + 1) * ms) }));
+  }
+  function bilSlot(t) { return t.slotMasa && t.slotMasa.length ? t.slotMasa.length : slotSeragam(t).length; }
+  function locengTahap(t, th) {
+    const S = bilSlot(t);
+    if (th && th.slotMasa && th.slotMasa.length === S) return th.slotMasa;
+    return t.slotMasa && t.slotMasa.length ? t.slotMasa : slotSeragam(t);
+  }
+  // masa mula slot i (i === S -> masa tamat slot terakhir); th pilihan = ikut loceng tahap
+  function masaSlot(t, i, th) {
+    const L = locengTahap(t, th);
+    if (i < L.length) return L[i].mula;
+    if (!L.length) return t.mulaGrid;
+    const akhir = L[L.length - 1], len = toMin(akhir.tamat) - toMin(akhir.mula);
+    return toHHMM(toMin(akhir.tamat) + (i - L.length) * len);
+  }
+  function masaTamat(t, i, th) { const L = locengTahap(t, th); return i < L.length ? L[i].tamat : masaSlot(t, i + 1, th); }
   function tahapKelas(t, k) {
     const y = Number(k.tahun);
     return t.tahap.find(x => (x.tahun || []).map(Number).includes(y)) || t.tahap[0];
   }
+  const tiadaSet = (t, keys) => { const D = t.hari.length, S = bilSlot(t), g = Array.from({ length: D }, () => new Array(S).fill(false)); for (const key of keys || []) { const [h, x] = String(key).split("|"); const d = t.hari.indexOf(h); if (d >= 0 && +x < S) g[d][+x] = true; } return g; };
 
-  /* Matriks kebolehsediaan kelas: avail[hari][slot] = true jika boleh diisi pelajaran */
+  /* Matriks kebolehsediaan kelas: avail[hari][slot] = true jika boleh diisi pelajaran
+     (dalam waktu tahap, bukan rehat/acara, bukan masa tidak tersedia kelas) */
   function availKelas(t, k) {
-    const S = bilSlot(t), g0 = toMin(t.mulaGrid), ms = t.minitSlot, th = tahapKelas(t, k);
-    return t.hari.map(h => {
+    const th = tahapKelas(t, k), L = locengTahap(t, th);
+    const off = k && k.tiada && k.tiada.length ? tiadaSet(t, k.tiada) : null;
+    return t.hari.map((h, d) => {
       const row = [];
       const end = toMin((th && th.tamat && th.tamat[h]) || t.tamatGrid);
-      for (let s = 0; s < S; s++) {
-        const a = g0 + s * ms, b = a + ms;
-        let ok = b <= end;
+      for (let s = 0; s < L.length; s++) {
+        const a = toMin(L[s].mula), b = toMin(L[s].tamat);
+        let ok = b <= end && !(off && off[d][s]);
         if (ok && th) for (const r of th.rehat || []) if (a < toMin(r.tamat) && b > toMin(r.mula)) ok = false;
         if (ok) for (const e of t.acara || []) {
           if (!(e.hari || []).includes(h)) continue;
@@ -68,6 +92,13 @@
       return row;
     });
   }
+
+  /* ---------- pelajaran: kelas gabungan, kumpulan, bilik ---------- */
+  // semua kelas yang terlibat (kelas utama + kelas gabungan / joint classes)
+  function kelasPel(p) { return p ? (p.kelasTambah && p.kelasTambah.length ? [p.kelas, ...p.kelasTambah.filter(k => k && k !== p.kelas)] : [p.kelas]) : []; }
+  // kumpulan (division): "" = seluruh kelas; nama sama tidak boleh serentak, nama berbeza boleh serentak
+  function kumpPel(p) { return (p && String(p.kumpulan || "").trim().toUpperCase()) || "*"; }
+  function bilikCalon(p) { return p && p.bilik ? [p.bilik] : (p && p.bilikPilihan ? p.bilikPilihan.filter(Boolean) : []); }
 
   /* ---------- kad (blok pelajaran) ---------- */
   function pecahanLalai(masa) {
@@ -109,32 +140,69 @@
       pel: Object.fromEntries(P.pelajaran.map(p => [p.id, p])),
       guru: Object.fromEntries(P.guru.map(g => [g.id, g])),
       kad: Object.fromEntries(P.kad.map(c => [c.id, c])),
-      avail: {}, kelasOcc: {}, guruOcc: {}, bilikOcc: {}, tiada: {}, harian: {}, kadPel: {}, had: {}
+      avail: {}, kelasOcc: {}, kelasKump: {}, guruOcc: {}, bilikOcc: {}, tiada: {}, tiadaSub: {}, tiadaBilik: {},
+      harian: {}, kadPel: {}, kadKelas: {}, had: {}, hub: {}
     };
+    const subj = Object.fromEntries((P.subjek || []).map(x => [x.id, x]));
     for (const c of P.kad) (st.kadPel[c.pel] = st.kadPel[c.pel] || []).push(c);
-    for (const p of P.pelajaran) st.had[p.id] = Number(p.maksSehari) > 0 ? Number(p.maksSehari) : Math.max(t.maksBlokSehari || 1, Math.ceil((st.kadPel[p.id] || []).length / D));
-    for (const k of P.kelas) { st.avail[k.id] = availKelas(t, k); st.kelasOcc[k.id] = grid(); }
-    for (const g of P.guru) {
-      st.guruOcc[g.id] = grid();
-      const td = grid();
-      for (const key of g.tiada || []) { const [h, s] = key.split("|"); const d = t.hari.indexOf(h); if (d >= 0 && td[d]) td[d][+s] = true; }
-      st.tiada[g.id] = td;
+    for (const p of P.pelajaran) {
+      const sm = subj[p.subjek] && Number(subj[p.subjek].maksSehari);
+      st.had[p.id] = Number(p.maksSehari) > 0 ? Number(p.maksSehari) : sm > 0 ? sm : Math.max(t.maksBlokSehari || 1, Math.ceil((st.kadPel[p.id] || []).length / D));
+      for (const k of kelasPel(p)) for (const c of st.kadPel[p.id] || []) (st.kadKelas[k] = st.kadKelas[k] || []).push(c);
     }
-    for (const b of P.bilik) st.bilikOcc[b.id] = grid();
+    for (const k of P.kelas) {
+      st.avail[k.id] = availKelas(t, k); st.kelasOcc[k.id] = grid();
+      st.kelasKump[k.id] = Array.from({ length: D }, () => Array.from({ length: S }, () => ({})));
+    }
+    for (const g of P.guru) { st.guruOcc[g.id] = grid(); st.tiada[g.id] = tiadaSet(t, g.tiada); }
+    for (const x of P.subjek || []) if (x.tiada && x.tiada.length) st.tiadaSub[x.id] = tiadaSet(t, x.tiada);
+    for (const b of P.bilik) { st.bilikOcc[b.id] = grid(); if (b.tiada && b.tiada.length) st.tiadaBilik[b.id] = tiadaSet(t, b.tiada); }
+    // hubungan: subjek yang tidak boleh berada pada hari yang sama bagi kelas yang sama
+    for (const h of t.hubungan || []) {
+      if (h.jenis !== "bukanHariSama") continue;
+      const ids = (h.subjek || []).filter(Boolean);
+      for (const a of ids) for (const b of ids) if (a !== b) (st.hub[a] = st.hub[a] || new Set()).add(b);
+    }
     for (const c of P.kad) if (c.hari >= 0) pasang(st, c, c.hari, c.slot, true);
     return st;
   }
 
   function harianKey(c, d) { return c.pel + "|" + d; }
 
+  /* Pilih bilik bagi kad di (d,s): bilik bebas jika ada; jika tidak, bilik dengan pertembungan paling sedikit.
+     Pulangkan { r, konflik: [] } atau null jika tiada bilik calon yang tersedia (masa tidak tersedia bilik). */
+  function pilihBilik(st, c, d, s, utama) {
+    const p = st.pel[c.pel], calon = bilikCalon(p);
+    if (!calon.length) return { r: "", konflik: [] };
+    let best = null;
+    const urut = utama && calon.includes(utama) ? [utama, ...calon.filter(x => x !== utama)] : calon;
+    for (const r of urut) {
+      const occ = st.bilikOcc[r]; if (!occ) continue;
+      const off = st.tiadaBilik[r]; let ok = true; const set = new Set();
+      for (let k = 0; k < c.len; k++) { const x = s + k; if (x >= st.S || (off && off[d][x])) { ok = false; break; } const o = occ[d][x]; if (o && o !== c.id) set.add(o); }
+      if (!ok) continue;
+      if (!set.size) return { r, konflik: [] };
+      if (!best || set.size < best.konflik.length) best = { r, konflik: [...set] };
+    }
+    return best;
+  }
+
   function pasang(st, c, d, s, paksa) {
     const p = st.pel[c.pel]; if (!p) return;
     c.hari = d; c.slot = s;
+    const kp = kumpPel(p);
+    const calon = bilikCalon(p);
+    if (calon.length) {
+      if (!(paksa && calon.includes(c.bilik))) { const pb = pilihBilik(st, c, d, s, c.bilik); c.bilik = pb ? pb.r : calon[0]; }
+    } else if (c.bilik) delete c.bilik;
     for (let k = 0; k < c.len; k++) {
       const x = s + k; if (x >= st.S) continue;
-      if (st.kelasOcc[p.kelas]) st.kelasOcc[p.kelas][d][x] = c.id;
+      for (const kl of kelasPel(p)) if (st.kelasKump[kl]) {
+        st.kelasKump[kl][d][x][kp] = c.id;
+        if (!st.kelasOcc[kl][d][x]) st.kelasOcc[kl][d][x] = c.id;
+      }
       for (const g of p.guru) if (st.guruOcc[g]) st.guruOcc[g][d][x] = c.id;
-      if (p.bilik && st.bilikOcc[p.bilik]) st.bilikOcc[p.bilik][d][x] = c.id;
+      if (c.bilik && st.bilikOcc[c.bilik]) st.bilikOcc[c.bilik][d][x] = c.id;
     }
     const hk = harianKey(c, d); st.harian[hk] = (st.harian[hk] || 0) + 1;
   }
@@ -142,12 +210,19 @@
   function cabut(st, c) {
     if (c.hari < 0) return;
     const p = st.pel[c.pel], d = c.hari, s = c.slot;
-    if (p) for (let k = 0; k < c.len; k++) {
-      const x = s + k; if (x >= st.S) continue;
-      const lepas = (g) => { if (g && g[d][x] === c.id) g[d][x] = null; };
-      lepas(st.kelasOcc[p.kelas]);
-      for (const g of p.guru) lepas(st.guruOcc[g]);
-      if (p.bilik) lepas(st.bilikOcc[p.bilik]);
+    if (p) {
+      const kp = kumpPel(p);
+      for (let k = 0; k < c.len; k++) {
+        const x = s + k; if (x >= st.S) continue;
+        const lepas = (g) => { if (g && g[d][x] === c.id) g[d][x] = null; };
+        for (const kl of kelasPel(p)) if (st.kelasKump[kl]) {
+          const m = st.kelasKump[kl][d][x];
+          if (m[kp] === c.id) delete m[kp];
+          if (st.kelasOcc[kl][d][x] === c.id) { const v = Object.values(m); st.kelasOcc[kl][d][x] = v.length ? v[0] : null; }
+        }
+        for (const g of p.guru) lepas(st.guruOcc[g]);
+        if (c.bilik) lepas(st.bilikOcc[c.bilik]);
+      }
     }
     const hk = harianKey(c, d); st.harian[hk] = Math.max(0, (st.harian[hk] || 1) - 1);
     c.hari = -1; c.slot = -1;
@@ -158,25 +233,35 @@
   /* Struktur: adakah blok boleh berada di (d,s) jika semua kad lain diabaikan? */
   function strukturOK(st, c, d, s) {
     const p = st.pel[c.pel]; if (!p) return false;
-    const av = st.avail[p.kelas]; if (!av) return false;
+    const kls = kelasPel(p);
+    const offS = st.tiadaSub[p.subjek];
     for (let k = 0; k < c.len; k++) {
       const x = s + k;
-      if (x >= st.S || !av[d][x]) return false;
+      if (x >= st.S) return false;
+      for (const kl of kls) { const av = st.avail[kl]; if (!av || !av[d][x]) return false; }
       for (const g of p.guru) if (st.tiada[g] && st.tiada[g][d][x]) return false;
+      if (offS && offS[d][x]) return false;
     }
+    if (bilikCalon(p).length && !pilihBilik(st, c, d, s)) return false;
     return true;
   }
 
   /* Senarai kad yang bertembung jika c diletak di (d,s). null = mustahil secara struktur. */
   function pertembungan(st, c, d, s) {
     if (!strukturOK(st, c, d, s)) return null;
-    const p = st.pel[c.pel], set = new Set();
+    const p = st.pel[c.pel], set = new Set(), kp = kumpPel(p), kls = kelasPel(p);
     for (let k = 0; k < c.len; k++) {
       const x = s + k;
-      const a = st.kelasOcc[p.kelas][d][x]; if (a && a !== c.id) set.add(a);
+      for (const kl of kls) {
+        const m = st.kelasKump[kl] && st.kelasKump[kl][d][x]; if (!m) continue;
+        if (kp === "*") { for (const id of Object.values(m)) if (id !== c.id) set.add(id); }
+        else { if (m["*"] && m["*"] !== c.id) set.add(m["*"]); if (m[kp] && m[kp] !== c.id) set.add(m[kp]); }
+      }
       for (const g of p.guru) { const b = st.guruOcc[g] && st.guruOcc[g][d][x]; if (b && b !== c.id) set.add(b); }
-      if (p.bilik && st.bilikOcc[p.bilik]) { const r = st.bilikOcc[p.bilik][d][x]; if (r && r !== c.id) set.add(r); }
     }
+    // bilik: bilik tetap atau salah satu bilik pilihan
+    const pb = pilihBilik(st, c, d, s, c.bilik);
+    if (pb) for (const id of pb.konflik) set.add(id);
     // had blok sehari bagi pelajaran sama
     const lim = hadSehari(st, p);
     const sama = (st.kadPel[c.pel] || []).filter(o => o.pel === c.pel && o.id !== c.id && o.hari === d && !set.has(o.id));
@@ -184,6 +269,22 @@
       // perlu keluarkan satu (yang tidak berkunci jika boleh)
       const buang = sama.find(o => !o.kunci) || sama[0];
       set.add(buang.id);
+    }
+    // hubungan: subjek berkaitan tidak boleh pada hari yang sama (kelas sama)
+    const hub = st.hub[p.subjek];
+    if (hub) for (const kl of kls) for (const o of st.kadKelas[kl] || []) {
+      if (o.id === c.id || o.hari !== d || set.has(o.id)) continue;
+      const po = st.pel[o.pel]; if (po && hub.has(po.subjek)) set.add(o.id);
+    }
+    // had masa sehari guru (keras)
+    for (const g of p.guru) {
+      const gr = st.guru[g], mx = gr && Number(gr.maksSehari); if (!(mx > 0)) continue;
+      const occ = st.guruOcc[g]; if (!occ) continue;
+      const lain = {}; let n = 0;
+      for (const id of occ[d]) if (id && id !== c.id && !set.has(id)) { n++; lain[id] = (lain[id] || 0) + 1; }
+      if (n + c.len <= mx) continue;
+      const calon = Object.keys(lain).map(id => st.kad[id]).sort((a, b) => (a.kunci - b.kunci) || (b.len - a.len));
+      for (const o of calon) { if (n + c.len <= mx) break; set.add(o.id); n -= lain[o.id]; }
     }
     return [...set];
   }
@@ -198,10 +299,18 @@
       const occ = st.guruOcc[g]; if (!occ) continue;
       let beban = 0; for (const x of occ[d]) if (x) beban++;
       sc += beban * 0.35;
+      const gr = st.guru[g] || {}, maksRun = Number(gr.maksBerturut) || t.maksBerturutGuru || 99;
       // masa berturut-turut
       let run = c.len, x = s - 1; while (x >= 0 && occ[d][x]) { run++; x--; }
       x = s + c.len; while (x < st.S && occ[d][x]) { run++; x++; }
-      if (run > (t.maksBerturutGuru || 99)) sc += 6 * (run - t.maksBerturutGuru);
+      if (run > maksRun) sc += 6 * (run - maksRun);
+      // waktu kosong (gap) guru dalam sehari
+      if (gr.maksGap !== undefined && gr.maksGap !== "" && Number(gr.maksGap) >= 0) {
+        let a = -1, b = -1, isi = 0;
+        for (let y = 0; y < st.S; y++) { const on = occ[d][y] || (y >= s && y < s + c.len); if (on) { if (a < 0) a = y; b = y; isi++; } }
+        const gap = a < 0 ? 0 : (b - a + 1) - isi;
+        if (gap > Number(gr.maksGap)) sc += 3 * (gap - Number(gr.maksGap));
+      }
     }
     // sebarkan blok pelajaran sama ke hari berlainan
     sc += (st.harian[harianKey(c, d)] || 0) * 4;
@@ -335,26 +444,55 @@
     return r;
   }
 
-  /* ---------- semakan pertembungan keseluruhan ---------- */
+  /* ---------- semakan pertembungan keseluruhan ----------
+     jenis: kelas | guru | bilik | luar (luar waktu / rehat / masa tidak tersedia) | hadGuru | hubungan */
   function semakSemua(P) {
     const t = P.tetapan, D = t.hari.length, S = bilSlot(t);
     const pel = Object.fromEntries(P.pelajaran.map(p => [p.id, p]));
-    const isu = [], kelasM = {}, guruM = {}, bilikM = {};
+    const isu = [], guruM = {}, bilikM = {}, kelasM = {};
     const tanda = (M, key, d, x, id, jenis) => {
       const k = key + "|" + d + "|" + x;
       if (M[k] && M[k] !== id) isu.push({ jenis, kad: [M[k], id], hari: d, slot: x, siapa: key }); else M[k] = id;
     };
     const avail = Object.fromEntries(P.kelas.map(k => [k.id, availKelas(t, k)]));
+    const tiadaG = Object.fromEntries(P.guru.map(g => [g.id, tiadaSet(t, g.tiada)]));
+    const tiadaS = Object.fromEntries((P.subjek || []).filter(x => x.tiada && x.tiada.length).map(x => [x.id, tiadaSet(t, x.tiada)]));
+    const bil = Object.fromEntries(P.bilik.map(b => [b.id, b]));
+    const tiadaB = Object.fromEntries(P.bilik.filter(b => b.tiada && b.tiada.length).map(b => [b.id, tiadaSet(t, b.tiada)]));
+    const sehari = {};
     for (const c of P.kad) {
       if (c.hari < 0) continue; const p = pel[c.pel]; if (!p) continue;
+      const kp = kumpPel(p), br = p.bilik || c.bilik || "";
       for (let k = 0; k < c.len; k++) {
         const x = c.slot + k;
-        if (x >= S || !avail[p.kelas] || !avail[p.kelas][c.hari][x]) isu.push({ jenis: "luar", kad: [c.id], hari: c.hari, slot: x, siapa: p.kelas });
-        tanda(kelasM, p.kelas, c.hari, x, c.id, "kelas");
-        for (const g of p.guru) tanda(guruM, g, c.hari, x, c.id, "guru");
-        if (p.bilik) tanda(bilikM, p.bilik, c.hari, x, c.id, "bilik");
+        let luar = x >= S || (tiadaS[p.subjek] && tiadaS[p.subjek][c.hari][x]) || p.guru.some(g => tiadaG[g] && tiadaG[g][c.hari][x]) || (br && tiadaB[br] && tiadaB[br][c.hari][x]);
+        for (const kl of kelasPel(p)) {
+          if (!avail[kl] || !avail[kl][c.hari][x]) luar = true;
+          const m = (kelasM[kl + "|" + c.hari + "|" + x] = kelasM[kl + "|" + c.hari + "|" + x] || {});
+          const lawan = kp === "*" ? Object.values(m) : [m["*"], m[kp]].filter(Boolean);
+          for (const o of lawan) if (o !== c.id) isu.push({ jenis: "kelas", kad: [o, c.id], hari: c.hari, slot: x, siapa: kl });
+          if (!lawan.length) m[kp] = c.id;
+        }
+        if (luar) isu.push({ jenis: "luar", kad: [c.id], hari: c.hari, slot: x, siapa: p.kelas });
+        for (const g of p.guru) { tanda(guruM, g, c.hari, x, c.id, "guru"); const kk = g + "|" + c.hari; sehari[kk] = (sehari[kk] || 0) + 1; }
+        if (br) tanda(bilikM, br, c.hari, x, c.id, "bilik");
       }
     }
+    for (const g of P.guru) {
+      const mx = Number(g.maksSehari); if (!(mx > 0)) continue;
+      for (let d = 0; d < D; d++) if ((sehari[g.id + "|" + d] || 0) > mx) {
+        const kad = P.kad.filter(c => c.hari === d && pel[c.pel] && pel[c.pel].guru.includes(g.id)).map(c => c.id);
+        isu.push({ jenis: "hadGuru", kad, hari: d, slot: -1, siapa: g.id });
+      }
+    }
+    for (const h of t.hubungan || []) {
+      if (h.jenis !== "bukanHariSama") continue;
+      const set = new Set(h.subjek || []), per = {};
+      for (const c of P.kad) { if (c.hari < 0) continue; const p = pel[c.pel]; if (!p || !set.has(p.subjek)) continue;
+        for (const kl of kelasPel(p)) { const key = kl + "|" + c.hari; (per[key] = per[key] || []).push(c); } }
+      for (const [key, arr] of Object.entries(per)) if (new Set(arr.map(c => pel[c.pel].subjek)).size > 1) isu.push({ jenis: "hubungan", kad: arr.map(c => c.id), hari: +key.split("|")[1], slot: -1, siapa: key.split("|")[0] });
+    }
+    void bil;
     return isu;
   }
 
@@ -429,13 +567,26 @@
         for (const h of a.hari || []) classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, teacher: a.guru || "" });
       }
     }
+    const bilikN = Object.fromEntries(P.bilik.map(b => [b.id, b.nama]));
     for (const c of P.kad) {
       if (c.hari < 0) continue; const p = pel[c.pel]; if (!p) continue;
-      const day = t.hari[c.hari], start = masaSlot(t, c.slot), end = masaSlot(t, c.slot + c.len);
+      const day = t.hari[c.hari];
       const sk = (subj[p.subjek] || {}).kod || "";
-      const kl = kelasById[p.kelas];
-      classes[cIdx[p.kelas]].entries.push({ day, start, end, subject: sk, teacher: p.guru.map(g => (guru[g] || {}).nama || "").join(" / ") });
-      for (const g of p.guru) if (tIdx[g] !== undefined) teachers[tIdx[g]].entries.push({ day, start, end, subject: sk, class: kl ? kl.kod : "" });
+      const kls = kelasPel(p).map(id => kelasById[id]).filter(Boolean);
+      const room = bilikN[p.bilik || c.bilik] || "";
+      const kod = kls.map(k => k.kod).join("/") + (p.kumpulan ? " (" + p.kumpulan + ")" : "");
+      for (const kl of kls) {
+        const th = tahapKelas(t, kl);
+        const e = { day, start: masaSlot(t, c.slot, th), end: masaTamat(t, c.slot + c.len - 1, th), subject: sk, teacher: p.guru.map(g => (guru[g] || {}).nama || "").join(" / ") };
+        if (room) e.room = room; if (p.kumpulan) e.group = p.kumpulan;
+        classes[cIdx[kl.id]].entries.push(e);
+      }
+      const th0 = kls[0] ? tahapKelas(t, kls[0]) : null;
+      for (const g of p.guru) if (tIdx[g] !== undefined) {
+        const e = { day, start: masaSlot(t, c.slot, th0), end: masaTamat(t, c.slot + c.len - 1, th0), subject: sk, class: kod };
+        if (room) e.room = room;
+        teachers[tIdx[g]].entries.push(e);
+      }
     }
     teachers.forEach(x => x.entries.sort(urut)); classes.forEach(x => x.entries.sort(urut));
     return { teachers, classes };
@@ -564,7 +715,8 @@
 
   const API = {
     kodKelasAgihan, barisDariAgihanGuru,
-    HARI_LALAI, toMin, toHHMM, uid, tetapanLalai, projekKosong, bilSlot, masaSlot, tahapKelas, availKelas,
+    HARI_LALAI, toMin, toHHMM, uid, tetapanLalai, projekKosong, bilSlot, masaSlot, masaTamat, slotSeragam, locengTahap, tahapKelas, availKelas,
+    kelasPel, kumpPel, bilikCalon, pilihBilik, tiadaSet,
     pecahanLalai, pecahanSah, selaraskanKad, binaKeadaan, pasang, cabut, strukturOK, pertembungan,
     Penjana, janaSync, kemaskan, jumlahSkor, skorLembut, semakSemua, importJadualHtml, eksportJadualHtml, parseCSV, barisDariCSV, importAgihan
   };

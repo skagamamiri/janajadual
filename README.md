@@ -100,7 +100,22 @@ Untuk Jana Jadual: fungsi `agihan_untuk_jana(p_versi)` memberi kelas, subjek, gu
 ## Peraturan penjana
 
 Wajib: tiada pertembungan guru/kelas/bilik, rehat & waktu tamat ikut tahap, acara tetap
-(Kerohanian, PHM), masa guru tidak hadir, kad berkunci tidak diusik, had blok subjek sehari.
-Lembut: subjek teras waktu pagi, maks masa berturut guru, beban harian guru seimbang.
+(Kerohanian, PHM), masa tidak tersedia (guru, kelas, subjek, bilik), had masa sehari guru,
+hubungan subjek "tidak pada hari yang sama", kad berkunci tidak diusik, had blok subjek sehari.
+Lembut: subjek teras waktu pagi, maks masa berturut guru (umum atau setiap guru), maks waktu kosong guru,
+beban harian guru seimbang.
 
-Diuji dengan Jadual Versi 4.0 (24 kelas, 52 guru, 746 blok): lengkap tanpa pertembungan dalam 1–4 saat.
+## Ciri gaya aSc Timetables
+
+| Ciri aSc | Dalam Jana Jadual |
+|---|---|
+| Time off (guru / kelas / subjek / bilik) | Grid "masa tidak tersedia" dalam dialog Edit — ketik slot, nama hari (sehari penuh) atau masa (satu lajur) |
+| Constraints guru | Maks masa sehari (wajib), maks berturut, maks waktu kosong sehari |
+| Constraints subjek | Waktu tidak dibenarkan, maks blok sehari |
+| Relations | Tetapan → Hubungan subjek: "tidak pada hari yang sama" (cth PJ & PK) |
+| Joint classes | Agihan → pelajaran → *Gabung kelas* (cth PJ 4A+4B serentak) |
+| Divisions / groups | Agihan → pelajaran → *Kumpulan* (cth A / B); kumpulan berbeza boleh serentak, seluruh kelas tidak |
+| Rooms | Bilik tetap, atau *mana-mana bilik yang kosong* daripada senarai (diagih automatik); tukar bilik dari bar kad; paparan & cetakan semua bilik |
+| Bell times | Tetapan → Waktu loceng: masa mula/tamat setiap waktu (panjang berbeza), dan loceng khas setiap tahap |
+| Verification | Ringkasan → Semakan: senarai pertembungan & kekangan dilanggar |
+| Contract / Lessons | Senarai pelajaran guru / kelas / subjek (klik nama) |
