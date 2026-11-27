@@ -523,6 +523,7 @@ function tTetapan() {
         <label class="f">Rehat (cth 09:00-09:30)<input data-th="${i}" data-k="rehat" value="${esc((th.rehat || []).map(r => r.mula + "-" + r.tamat).join(", "))}"></label>
       </div>
       <div class="grid2" style="margin-top:8px">${t.hari.map(h => `<label class="f">Tamat ${esc(h)}<input type="time" data-th="${i}" data-k="tamat" data-h="${esc(h)}" value="${esc((th.tamat || {})[h] || t.tamatGrid)}"></label>`).join("")}</div>
+      ${semakTahap(th)}
       <label class="row small" style="margin-top:8px"><input type="checkbox" data-th="${i}" data-k="loceng" ${th.slotMasa && th.slotMasa.length ? "checked" : ""}> Waktu loceng khas untuk tahap ini <span class="muted">(cth Tahun 1 dengan Pembentukan Karakter 15 minit)</span></label>
       ${th.slotMasa && th.slotMasa.length ? jadualLoceng(th.slotMasa, i) : ""}
       <div class="row" style="margin-top:6px"><button class="mini red" onclick="padamTahap(${i})"><i class="fa-solid fa-trash"></i> Padam tahap</button></div>
@@ -640,6 +641,18 @@ function buangKadLuarGrid() {
 function tambahTahap() { snap(); P.tetapan.tahap.push({ id: E.uid("T"), nama: "Tahap baharu", tahun: [], tamat: {}, rehat: [] }); ditukar(); render(); }
 function padamTahap(i) { if (P.tetapan.tahap.length < 2) return toast("Perlu sekurang-kurangnya satu tahap"); if (!confirm("Padam tahap ini?")) return; snap(); P.tetapan.tahap.splice(i, 1); buangKadLuarGrid(); ditukar(); render(); }
 function tambahAcara() { snap(); P.tetapan.acara.push({ id: E.uid("a"), nama: "ACARA", hari: [], mula: P.tetapan.mulaGrid, tamat: E.masaSlot(P.tetapan, 1), tahap: [], guru: "" }); ditukar(); render(); }
+// ringkasan slot tersedia setiap hari bagi satu tahap + amaran tetapan yang mencurigakan
+function semakTahap(th) {
+  const t = P.tetapan, L = E.locengTahap(t, th), awal = L.length ? E.toMin(L[0].mula) : 0;
+  const av = E.availKelas(t, { tahun: (th.tahun || [])[0] || 0, tiada: [] });
+  const amaran = [];
+  t.hari.forEach(h => { const tm = (th.tamat || {})[h]; if (tm && E.toMin(tm) <= awal) amaran.push(`Tamat ${h} = ${tm} lebih awal daripada waktu pertama (${L[0].mula}) — mungkin AM/PM tertukar (pilih PM).`); });
+  if (!(th.tahun || []).length) amaran.push("Tiada tahun dipilih untuk tahap ini.");
+  for (const r of th.rehat || []) if (E.toMin(r.tamat) - E.toMin(r.mula) > 120) amaran.push(`Rehat ${r.mula}-${r.tamat} melebihi 2 jam — semak semula.`);
+  const n = av.map(row => row.filter(Boolean).length);
+  return `<div class="small" style="margin-top:8px">Slot tersedia: ${t.hari.map((h, d) => `<span class="pill ${n[d] ? "ok" : "bad"}">${esc(h.slice(0, 3))} ${n[d]}</span>`).join(" ")} <b>= ${n.reduce((a, b) => a + b, 0)} seminggu</b></div>
+    ${amaran.map(a => `<div class="pill bad" style="margin-top:6px;display:block">${esc(a)}</div>`).join("")}`;
+}
 function jadualLoceng(arr, ti) {
   const th = ti >= 0 ? P.tetapan.tahap[ti] : null;
   const rehatDi = x => th && (th.rehat || []).some(r => E.toMin(x.mula) < E.toMin(r.tamat) && E.toMin(x.tamat) > E.toMin(r.mula));
