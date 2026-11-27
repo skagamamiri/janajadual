@@ -250,6 +250,7 @@ const singGuru = id => { const g = byId(P.guru, id); return g ? (g.singkatan || 
 const subjekOf = id => byId(P.subjek, id) || { kod: "?", warna: "#64748b" };
 // nama kelas bagi pelajaran: kelas gabungan "4A+4B", kumpulan "(A)"
 const namaKelasP = p => E.kelasPel(p).map(namaKelas).join("+") + (p.kumpulan ? " (" + p.kumpulan + ")" : "");
+const acaraSubjek = sid => (P.tetapan.acara || []).find(a => a.subjek === sid);
 const namaBilik = id => (byId(P.bilik, id) || {}).nama || "";
 const bilikKad = (c, p) => (p && p.bilik) || c.bilik || "";
 const masaLabel = n => n + " masa" + (P.tetapan.minitSlot ? " (" + (n * P.tetapan.minitSlot / 60).toFixed(1).replace(".0", "") + " j)" : "");
@@ -832,6 +833,14 @@ function tSubjek() {
     const h = Array.from({ length: D }, () => new Array(S).fill(0)); let mx = 0;
     kads.forEach(c => { if (c.hari >= 0) for (let k = 0; k < c.len; k++) if (c.slot + k < S) mx = Math.max(mx, ++h[c.hari][c.slot + k]); });
     const off = x.tiada && x.tiada.length ? E.tiadaSet(P.tetapan, x.tiada) : null;
+    const ac = acaraSubjek(x.id);
+    if (ac) {
+      const T = (st.tugas || []).find(T => T.subjek === x.id), nk = T ? T.kelas.size : 0, hs = (ac.hari || []).map(h => P.tetapan.hari.indexOf(h));
+      return `<tr onclick="dlgKontrak('subjek','${x.id}')"><td><span class="sw" style="background:${esc(x.warna)}"></span><b>${esc(x.nama)}</b><div class="muted small">waktu tetap ${esc(ac.mula)}–${esc(ac.tamat)}${ac.guruDari !== undefined ? " • guru waktu sebelum" : ""}</div></td><td class="hs">${esc(x.kod)}</td>
+        <td class="num"><b>${hs.length}×</b><div class="muted small">${E.toMin(ac.tamat) - E.toMin(ac.mula)} min</div></td><td class="num hs">${nk} kelas</td>
+        <td>${miniGrid((d, k) => hs.includes(d) && T && T.ts.includes(k) ? { a: 1 } : "")}</td><td class="num"><span class="pill ok">tetap</span></td>
+        <td class="act">${btnAsc("fa-list", "Guru", `dlgKontrak('subjek','${x.id}')`)}${btnAsc("fa-pen", "Edit", `dlgSubjek('${x.id}')`)}</td></tr>`;
+    }
     return `<tr onclick="dlgKontrak('subjek','${x.id}')"><td><span class="sw" style="background:${esc(x.warna)}"></span><b>${esc(x.nama)}</b></td><td class="hs">${esc(x.kod)}</td>
       <td class="num"><b>${jum}</b></td><td class="num hs">${pel.length}</td>
       <td title="Taburan kad di grid (lebih gelap = lebih banyak kelas pada waktu itu)">${miniGrid((d, k) => off && off[d][k] ? "off" : h[d][k] ? { a: (0.25 + 0.75 * h[d][k] / mx).toFixed(2) } : "")}</td>
@@ -857,9 +866,23 @@ function tSubjek() {
 }
 function dlgSubjek(id) {
   const x = id ? byId(P.subjek, id) : { id: E.uid("s"), kod: "", nama: "", warna: "#2563eb" };
-  const sel = new Set(x.tiada || []);
+  const sel = new Set(x.tiada || []), t = P.tetapan;
+  // acara sedia ada untuk subjek ini (atau acara dengan nama sama, cth PEMBENTUKAN KARAKTER)
+  let ac = acaraSubjek(x.id) || (x.nama ? (t.acara || []).find(a => !a.subjek && a.nama.toUpperCase() === x.nama.toUpperCase()) : null);
+  const thPilih = ac ? ac.tahap || [] : (t.tahap.filter(th => (th.tahun || []).map(Number).includes(1)).map(th => th.id));
+  const L = E.locengTahap(t, t.tahap.find(th => thPilih.includes(th.id)) || null);
+  const gd = ac ? ac.guruDari : Math.max(0, L.findIndex(z => z.tamat === "09:00"));
   modal(`<h2>${id ? "Edit" : "Tambah"} subjek</h2><div class="grid2"><label class="f">Kod<input id="sK" value="${esc(x.kod)}"></label><label class="f">Nama<input id="sN" value="${esc(x.nama)}"></label><label class="f">Warna<input id="sW" type="color" value="${esc(x.warna)}"></label>
       <label class="f">Maks blok sehari (0 = ikut tetapan)<input id="sMx" type="number" min="0" max="6" value="${x.maksSehari || 0}"></label></div>
+    <details ${ac ? "open" : ""} style="margin-top:10px"><summary><b>Waktu tetap</b> <span class="muted small">— subjek pada masa tetap setiap hari (bukan dijana), cth Pembentukan Karakter 9:00–9:15</span></summary>
+      <label class="row small" style="margin:8px 0"><input type="checkbox" id="sAc" ${ac ? "checked" : ""}> Subjek ini ada waktu tetap</label>
+      <div class="grid2"><label class="f">Mula<input type="time" id="sAm" value="${esc(ac ? ac.mula : "09:00")}"></label><label class="f">Tamat<input type="time" id="sAt" value="${esc(ac ? ac.tamat : "09:15")}"></label>
+        <label class="f">Guru<select id="sAg"><option value="">Label tetap (taip di bawah)</option>${L.map((z, j) => `<option value="${j}" ${String(gd) === String(j) ? "selected" : ""}>Guru yang mengajar waktu ${j + 1} (${z.mula}–${z.tamat})</option>`).join("")}</select></label>
+        <label class="f">Label guru tetap (jika tiada)<input id="sAl" value="${esc(ac ? ac.guru || "" : "")}"></label></div>
+      <div class="row small" style="margin-top:8px;gap:6px;flex-wrap:wrap"><span class="muted">Hari:</span>${t.hari.map(h => `<label class="pill"><input type="checkbox" class="sAh" value="${esc(h)}" ${!ac || (ac.hari || []).includes(h) ? "checked" : ""}> ${esc(h)}</label>`).join("")}</div>
+      <div class="row small" style="margin-top:6px;gap:6px;flex-wrap:wrap"><span class="muted">Tahap:</span>${t.tahap.map(th => `<label class="pill"><input type="checkbox" class="sAth" value="${esc(th.id)}" ${thPilih.includes(th.id) ? "checked" : ""}> ${esc(th.nama)} (Tahun ${esc((th.tahun || []).join(","))})</label>`).join("")}</div>
+      <div class="row small" style="margin-top:6px;gap:14px;flex-wrap:wrap"><label><input type="checkbox" id="sAu1" ${!ac || ac.unikHari !== false ? "checked" : ""}> Guru berbeza setiap hari (kelas sama)</label><label><input type="checkbox" id="sAu2" ${!ac || ac.unikKelas !== false ? "checked" : ""}> Elakkan guru sama untuk kelas lain</label></div>
+      <p class="muted small" style="margin:6px 0 0">Waktu ini ditutup untuk tahap dipilih (tiada pelajaran lain dijana). Pastikan baki waktu (cth rehat 9:15–9:30) ditetapkan dalam Tetapan → Tahap.</p></details>
     <h3>Waktu tidak dibenarkan</h3><p class="muted small" style="margin-top:0">Subjek ini tidak akan dijadualkan pada slot merah (cth PJ bukan waktu akhir, BM hanya waktu pagi). Ketik slot / hari / masa.</p>
     ${gridTiadaHTML(sel)}
     <div class="row" style="margin-top:14px"><button class="pri" id="sOk">Simpan</button><button data-tutup>Batal</button>${id ? `<button class="red" id="sDel"><i class="fa-solid fa-trash"></i> Padam</button>` : ""}</div>`, b => {
@@ -870,9 +893,19 @@ function dlgSubjek(id) {
       const mx = +$("#sMx", b).value || 0; if (mx) x.maksSehari = mx; else delete x.maksSehari;
       if (sel.size) x.tiada = [...sel]; else delete x.tiada;
       if (!id) P.subjek.push(x);
+      // waktu tetap (acara)
+      if ($("#sAc", b).checked) {
+        const mula = $("#sAm", b).value, tamat = $("#sAt", b).value;
+        if (!mula || !tamat || E.toMin(tamat) <= E.toMin(mula)) { toast("Masa waktu tetap tidak sah"); return; }
+        if (!ac) { ac = { id: E.uid("a"), nama: x.nama.toUpperCase(), guru: "" }; (t.acara = t.acara || []).push(ac); }
+        Object.assign(ac, { subjek: x.id, nama: x.nama.toUpperCase(), mula, tamat, hari: $$(".sAh:checked", b).map(i => i.value), tahap: $$(".sAth:checked", b).map(i => i.value), guru: $("#sAl", b).value.trim(),
+          unikHari: $("#sAu1", b).checked, unikKelas: $("#sAu2", b).checked });
+        const g = $("#sAg", b).value; if (g === "") delete ac.guruDari; else ac.guruDari = +g;
+        buangKadLuarGrid();
+      } else if (ac && ac.subjek === x.id) { t.acara = t.acara.filter(a => a !== ac); }
       keluarKadTiada(p => p.subjek === x.id, sel); tutupModal(); ditukar(); render();
     };
-    if (id) $("#sDel", b).onclick = () => { if (!confirm(`Padam subjek ${x.kod} berserta semua agihannya?`)) return; snap(); P.subjek = P.subjek.filter(s => s.id !== id); P.pelajaran = P.pelajaran.filter(p => p.subjek !== id); tutupModal(); ditukar(); render(); };
+    if (id) $("#sDel", b).onclick = () => { if (!confirm(`Padam subjek ${x.kod} berserta semua agihannya?`)) return; snap(); P.subjek = P.subjek.filter(s => s.id !== id); P.pelajaran = P.pelajaran.filter(p => p.subjek !== id); P.tetapan.acara = (P.tetapan.acara || []).filter(a => a.subjek !== id); tutupModal(); ditukar(); render(); };
   });
 }
 function dlgBilik(id) {
@@ -1051,7 +1084,7 @@ function labelBlok(k, d, s) {
   const a = E.toMin(E.masaSlot(t, s, th)), b = E.toMin(E.masaTamat(t, s, th));
   const lb = [];
   for (const e of t.acara || []) { if (!(e.hari || []).includes(h)) continue; if (e.tahap && e.tahap.length && th && !e.tahap.includes(th.id)) continue; if (a < E.toMin(e.tamat) && b > E.toMin(e.mula)) {
-    let n = e.nama; if (e.guruDari !== undefined && e.guruDari !== "" && st && k) { const gs = E.guruTugas(st, { rs: +e.guruDari }, k.id, d); if (gs.length) n += " — " + gs.map(singGuru).join(" / "); }
+    let n = e.subjek ? subjekOf(e.subjek).kod : e.nama; if (e.guruDari !== undefined && e.guruDari !== "" && st && k) { const gs = E.guruTugas(st, { rs: +e.guruDari }, k.id, d); if (gs.length) n += " — " + gs.map(singGuru).join(" / "); }
     lb.push(n); } }
   if (th) for (const r of th.rehat || []) if (a < E.toMin(r.tamat) && b > E.toMin(r.mula)) lb.push("REHAT");
   if (lb.length) return lb.join(" + ");
@@ -1062,7 +1095,7 @@ function labelBlok(k, d, s) {
 function tugasGuruDi(gid, d, s) {
   const out = [];
   for (const T of st.tugas || []) { if (!T.hari.has(d) || !T.ts.includes(s)) continue;
-    for (const kl of T.kelas) if (E.guruTugas(st, T, kl, d).includes(gid)) out.push(T.nama + " " + namaKelas(kl)); }
+    for (const kl of T.kelas) if (E.guruTugas(st, T, kl, d).includes(gid)) out.push((T.subjek ? subjekOf(T.subjek).kod : T.nama) + " " + namaKelas(kl)); }
   return out;
 }
 function kandunganKad(c, jenis) {
@@ -1184,6 +1217,7 @@ function tInduk() {
   </div>`;
 }
 function dlgKontrak(jenis, id) {
+  if (jenis === "subjek" && acaraSubjek(id)) return dlgGuruAcara(id);
   const isGuru = jenis === "induk-guru" || jenis === "guru", isSub = jenis === "subjek";
   const pel = P.pelajaran.filter(p => isSub ? p.subjek === id : isGuru ? p.guru.includes(id) : E.kelasPel(p).includes(id))
     .sort((a, b) => subjekOf(a.subjek).kod.localeCompare(subjekOf(b.subjek).kod) || namaKelas(a.kelas).localeCompare(namaKelas(b.kelas)));
@@ -1204,6 +1238,16 @@ function dlgKontrak(jenis, id) {
         if (isSub) { const sel = document.getElementById("pS"); if (sel) sel.value = id; }
       };
     });
+}
+function dlgGuruAcara(sid) {
+  bina();
+  const ac = acaraSubjek(sid), T = (st.tugas || []).find(T => T.subjek === sid), t = P.tetapan, sb = subjekOf(sid);
+  const hari = (ac.hari || []).filter(h => t.hari.includes(h));
+  const rows = T ? [...T.kelas].sort((a, b) => namaKelas(a).localeCompare(namaKelas(b))).map(kl => `<tr><td><b>${esc(namaKelas(kl))}</b></td>${hari.map(h => { const gs = E.guruTugas(st, T, kl, t.hari.indexOf(h)); return `<td>${gs.length ? esc(gs.map(singGuru).join(" / ")) : `<span class="pill warn">tiada</span>`}</td>`; }).join("")}</tr>`).join("") : "";
+  modal(`<h3 style="margin-top:0"><span class="sw" style="background:${esc(sb.warna)}"></span>${esc(sb.nama)} — ${esc(ac.mula)}–${esc(ac.tamat)}</h3>
+    <p class="muted small" style="margin-top:0">${ac.guruDari !== undefined ? `Guru = guru yang mengajar waktu ${+ac.guruDari + 1} pada hari itu. Berubah automatik bila jadual diubah.` : "Guru: " + esc(ac.guru || "-")}</p>
+    <div class="scroll kontrak-sc"><table class="simple"><thead><tr><th>Kelas</th>${hari.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows || `<tr><td class="muted">Tiada kelas — semak tahap.</td></tr>`}</tbody></table></div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button data-tutup>Tutup</button><button class="pri" onclick="tutupModal();dlgSubjek('${sid}')"><i class="fa-solid fa-pen"></i> Tetapan subjek</button></div>`);
 }
 function kunciSemuaEntiti(v) { if (!paparan.id) return; snap(); kadEntiti(paparan.jenis, paparan.id).forEach(c => { if (c.hari >= 0) c.kunci = v; }); ditukar(); render(); }
 

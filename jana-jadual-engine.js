@@ -148,7 +148,7 @@
         locengTahap(t, th).forEach((x, i) => { if (toMin(x.mula) < toMin(a.tamat) && toMin(x.tamat) > toMin(a.mula)) ts.add(i); });
       }
       const hari = new Set((a.hari || []).map(h => t.hari.indexOf(h)).filter(d => d >= 0));
-      if (kelas.length && hari.size) out.push({ ai, nama: a.nama, rs: +a.guruDari, kelas: new Set(kelas), hari, ts: [...ts], unikHari: a.unikHari !== false, unikKelas: a.unikKelas !== false });
+      if (kelas.length && hari.size) out.push({ ai, nama: a.nama, subjek: a.subjek || "", rs: +a.guruDari, kelas: new Set(kelas), hari, ts: [...ts], unikHari: a.unikHari !== false, unikKelas: a.unikKelas !== false });
     });
     return out;
   }
@@ -644,7 +644,7 @@
         if (a.tahap && a.tahap.length && th && !a.tahap.includes(th.id)) continue;
         for (const h of a.hari || []) {
           if (a.guruDari !== undefined && a.guruDari !== "" && +a.guruDari >= 0) { tugasE.push({ a, k, h }); continue; }
-          classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, teacher: a.guru || "" });
+          classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.subjek && subj[a.subjek] ? subj[a.subjek].kod : a.nama, teacher: a.guru || "" });
         }
       }
     }
@@ -654,8 +654,9 @@
       for (const { a, k, h } of tugasE) {
         const d = t.hari.indexOf(h); if (d < 0) continue;
         const gs = guruTugas(st, { rs: +a.guruDari }, k.id, d);
-        classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, teacher: gs.map(g => (guru[g] || {}).nama || "").join(" / ") });
-        for (const g of gs) if (tIdx[g] !== undefined) teachers[tIdx[g]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, class: k.kod });
+        const nm = a.subjek && subj[a.subjek] ? subj[a.subjek].kod : a.nama;
+        classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: nm, teacher: gs.map(g => (guru[g] || {}).nama || "").join(" / ") });
+        for (const g of gs) if (tIdx[g] !== undefined) teachers[tIdx[g]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: nm, class: k.kod });
       }
     }
     for (const c of P.kad) {
