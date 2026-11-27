@@ -875,18 +875,21 @@ function dlgSubjek(id) {
   modal(`<h2>${id ? "Edit" : "Tambah"} subjek</h2><div class="grid2"><label class="f">Kod<input id="sK" value="${esc(x.kod)}"></label><label class="f">Nama<input id="sN" value="${esc(x.nama)}"></label><label class="f">Warna<input id="sW" type="color" value="${esc(x.warna)}"></label>
       <label class="f">Maks blok sehari (0 = ikut tetapan)<input id="sMx" type="number" min="0" max="6" value="${x.maksSehari || 0}"></label></div>
     <details ${ac ? "open" : ""} style="margin-top:10px"><summary><b>Waktu tetap</b> <span class="muted small">— subjek pada masa tetap setiap hari (bukan dijana), cth Pembentukan Karakter 9:00–9:15</span></summary>
-      <label class="row small" style="margin:8px 0"><input type="checkbox" id="sAc" ${ac ? "checked" : ""}> Subjek ini ada waktu tetap</label>
+      <label class="item" style="margin:8px 0;cursor:pointer;border-color:var(--acc)"><input type="checkbox" id="sAc" ${ac ? "checked" : ""} style="width:18px;height:18px"> <b>Aktifkan waktu tetap untuk subjek ini</b> <span class="muted small">(mesti ditanda supaya subjek dimasukkan ke jadual)</span></label>
+      <div id="sAbox">
       <div class="grid2"><label class="f">Mula<input type="time" id="sAm" value="${esc(ac ? ac.mula : "09:00")}"></label><label class="f">Tamat<input type="time" id="sAt" value="${esc(ac ? ac.tamat : "09:15")}"></label>
         <label class="f">Guru<select id="sAg"><option value="">Label tetap (taip di bawah)</option>${L.map((z, j) => `<option value="${j}" ${String(gd) === String(j) ? "selected" : ""}>Guru yang mengajar waktu ${j + 1} (${z.mula}–${z.tamat})</option>`).join("")}</select></label>
         <label class="f">Label guru tetap (jika tiada)<input id="sAl" value="${esc(ac ? ac.guru || "" : "")}"></label></div>
       <div class="row small" style="margin-top:8px;gap:6px;flex-wrap:wrap"><span class="muted">Hari:</span>${t.hari.map(h => `<label class="pill"><input type="checkbox" class="sAh" value="${esc(h)}" ${!ac || (ac.hari || []).includes(h) ? "checked" : ""}> ${esc(h)}</label>`).join("")}</div>
       <div class="row small" style="margin-top:6px;gap:6px;flex-wrap:wrap"><span class="muted">Tahap:</span>${t.tahap.map(th => `<label class="pill"><input type="checkbox" class="sAth" value="${esc(th.id)}" ${thPilih.includes(th.id) ? "checked" : ""}> ${esc(th.nama)} (Tahun ${esc((th.tahun || []).join(","))})</label>`).join("")}</div>
       <div class="row small" style="margin-top:6px;gap:14px;flex-wrap:wrap"><label><input type="checkbox" id="sAu1" ${!ac || ac.unikHari !== false ? "checked" : ""}> Guru berbeza setiap hari (kelas sama)</label><label><input type="checkbox" id="sAu2" ${!ac || ac.unikKelas !== false ? "checked" : ""}> Elakkan guru sama untuk kelas lain</label></div>
-      <p class="muted small" style="margin:6px 0 0">Waktu ini ditutup untuk tahap dipilih (tiada pelajaran lain dijana). Pastikan baki waktu (cth rehat 9:15–9:30) ditetapkan dalam Tetapan → Tahap.</p></details>
+      <p class="muted small" style="margin:6px 0 0">Waktu ini ditutup untuk tahap dipilih (tiada pelajaran lain dijana). Pastikan baki waktu (cth rehat 9:15–9:30) ditetapkan dalam Tetapan → Tahap.</p></div></details>
     <h3>Waktu tidak dibenarkan</h3><p class="muted small" style="margin-top:0">Subjek ini tidak akan dijadualkan pada slot merah (cth PJ bukan waktu akhir, BM hanya waktu pagi). Ketik slot / hari / masa.</p>
     ${gridTiadaHTML(sel)}
     <div class="row" style="margin-top:14px"><button class="pri" id="sOk">Simpan</button><button data-tutup>Batal</button>${id ? `<button class="red" id="sDel"><i class="fa-solid fa-trash"></i> Padam</button>` : ""}</div>`, b => {
     ikatGridTiada(b, sel);
+    const kemasAc = () => { const on = $("#sAc", b).checked; $("#sAbox", b).style.opacity = on ? 1 : .45; $$("#sAbox input, #sAbox select", b).forEach(i => i.disabled = !on); };
+    $("#sAc", b).onchange = kemasAc; kemasAc();
     $("#sOk", b).onclick = () => {
       const kod = $("#sK", b).value.trim().toUpperCase(); if (!kod) return toast("Kod diperlukan");
       snap(); Object.assign(x, { kod, nama: $("#sN", b).value.trim() || kod, warna: $("#sW", b).value });
