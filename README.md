@@ -117,5 +117,6 @@ beban harian guru seimbang.
 | Divisions / groups | Agihan → pelajaran → *Kumpulan* (cth A / B); kumpulan berbeza boleh serentak, seluruh kelas tidak |
 | Rooms | Bilik tetap, atau *mana-mana bilik yang kosong* daripada senarai (diagih automatik); tukar bilik dari bar kad; paparan & cetakan semua bilik |
 | Bell times | Tetapan → Waktu loceng: masa mula/tamat setiap waktu (panjang berbeza), dan loceng khas setiap tahap |
+| Tugas acara ikut guru waktu sebelum | Tetapan → Acara → *Guru acara = guru yang mengajar waktu …* (cth Pembentukan Karakter Tahun 1, 9:00–9:15 = guru waktu 8:30–9:00); guru berbeza setiap hari, elak guru sama antara kelas, dan guru itu tidak diberi kelas lain pada masa acara |
 | Verification | Ringkasan → Semakan: senarai pertembungan & kekangan dilanggar |
 | Contract / Lessons | Senarai pelajaran guru / kelas / subjek (klik nama) |

@@ -131,6 +131,34 @@
     return P;
   }
 
+  /* ---------- tugas acara ikut guru waktu sebelum (cth Pembentukan Karakter) ----------
+     acara.guruDari = indeks slot sumber (cth waktu 8:30-9:00). Guru yang mengajar kelas pada slot itu
+     menjadi guru acara pada hari tersebut. acara.unikHari: guru berbeza setiap hari bagi kelas sama (wajib);
+     acara.unikKelas: elakkan guru sama menjadi guru acara bagi kelas lain dalam minggu itu (lembut).
+     Guru acara juga tidak boleh mengajar kelas lain pada slot yang bertindih dengan masa acara. */
+  function tugasAcara(P) {
+    const t = P.tetapan, out = [];
+    (t.acara || []).forEach((a, ai) => {
+      if (a.guruDari === undefined || a.guruDari === null || a.guruDari === "" || +a.guruDari < 0) return;
+      const kelas = [], ts = new Set();
+      for (const k of P.kelas) {
+        const th = tahapKelas(t, k);
+        if (a.tahap && a.tahap.length && !(th && a.tahap.includes(th.id))) continue;
+        kelas.push(k.id);
+        locengTahap(t, th).forEach((x, i) => { if (toMin(x.mula) < toMin(a.tamat) && toMin(x.tamat) > toMin(a.mula)) ts.add(i); });
+      }
+      const hari = new Set((a.hari || []).map(h => t.hari.indexOf(h)).filter(d => d >= 0));
+      if (kelas.length && hari.size) out.push({ ai, nama: a.nama, rs: +a.guruDari, kelas: new Set(kelas), hari, ts: [...ts], unikHari: a.unikHari !== false, unikKelas: a.unikKelas !== false });
+    });
+    return out;
+  }
+  // guru bagi slot sumber tugas pada (kelas, hari)
+  function guruTugas(st, T, kl, d) {
+    const m = st.kelasKump[kl] && st.kelasKump[kl][d][T.rs]; if (!m) return [];
+    const g = new Set(); for (const id of Object.values(m)) { const c = st.kad[id], p = c && st.pel[c.pel]; if (p) p.guru.forEach(x => g.add(x)); }
+    return [...g];
+  }
+
   /* ---------- keadaan (occupancy) ---------- */
   function binaKeadaan(P) {
     const t = P.tetapan, D = t.hari.length, S = bilSlot(t);
@@ -141,7 +169,7 @@
       guru: Object.fromEntries(P.guru.map(g => [g.id, g])),
       kad: Object.fromEntries(P.kad.map(c => [c.id, c])),
       avail: {}, kelasOcc: {}, kelasKump: {}, guruOcc: {}, bilikOcc: {}, tiada: {}, tiadaSub: {}, tiadaBilik: {},
-      harian: {}, kadPel: {}, kadKelas: {}, had: {}, hub: {}
+      harian: {}, kadPel: {}, kadKelas: {}, had: {}, hub: {}, tugas: tugasAcara(P)
     };
     const subj = Object.fromEntries((P.subjek || []).map(x => [x.id, x]));
     for (const c of P.kad) (st.kadPel[c.pel] = st.kadPel[c.pel] || []).push(c);
@@ -276,6 +304,26 @@
       if (o.id === c.id || o.hari !== d || set.has(o.id)) continue;
       const po = st.pel[o.pel]; if (po && hub.has(po.subjek)) set.add(o.id);
     }
+    // tugas acara (cth Pembentukan Karakter)
+    for (const T of st.tugas) {
+      if (!T.hari.has(d)) continue;
+      const sumber = s <= T.rs && T.rs < s + c.len && kls.some(kl => T.kelas.has(kl));
+      if (sumber) {
+        // (a) guru acara tidak boleh mengajar slot yang bertindih dengan masa acara
+        for (const g of p.guru) for (const x of T.ts) { const o = st.guruOcc[g] && st.guruOcc[g][d][x]; if (o && o !== c.id) set.add(o); }
+        // (b) guru berbeza setiap hari bagi kelas yang sama
+        if (T.unikHari) for (const kl of kls) if (T.kelas.has(kl)) for (const d2 of T.hari) {
+          if (d2 === d) continue;
+          const m = st.kelasKump[kl] && st.kelasKump[kl][d2][T.rs]; if (!m) continue;
+          for (const id of Object.values(m)) { if (id === c.id || set.has(id)) continue; const po = st.pel[st.kad[id].pel]; if (po && po.guru.some(g => p.guru.includes(g))) set.add(id); }
+        }
+      }
+      // (c) kad yang bertindih dengan masa acara: guru itu tidak boleh menjadi guru acara hari itu
+      if (T.ts.some(x => s <= x && x < s + c.len)) for (const kl of T.kelas) {
+        const m = st.kelasKump[kl] && st.kelasKump[kl][d][T.rs]; if (!m) continue;
+        for (const id of Object.values(m)) { if (id === c.id || set.has(id)) continue; const po = st.pel[st.kad[id].pel]; if (po && po.guru.some(g => p.guru.includes(g))) set.add(id); }
+      }
+    }
     // had masa sehari guru (keras)
     for (const g of p.guru) {
       const gr = st.guru[g], mx = gr && Number(gr.maksSehari); if (!(mx > 0)) continue;
@@ -310,6 +358,15 @@
         for (let y = 0; y < st.S; y++) { const on = occ[d][y] || (y >= s && y < s + c.len); if (on) { if (a < 0) a = y; b = y; isi++; } }
         const gap = a < 0 ? 0 : (b - a + 1) - isi;
         if (gap > Number(gr.maksGap)) sc += 3 * (gap - Number(gr.maksGap));
+      }
+    }
+    // tugas acara: elakkan guru sama menjadi guru acara bagi kelas lain dalam minggu itu
+    for (const T of st.tugas) {
+      if (!T.unikKelas || !T.hari.has(d) || !(s <= T.rs && T.rs < s + c.len)) continue;
+      const kls = kelasPel(p); if (!kls.some(kl => T.kelas.has(kl))) continue;
+      for (const kl2 of T.kelas) for (const d2 of T.hari) {
+        if (kls.includes(kl2)) continue;
+        if (guruTugas(st, T, kl2, d2).some(g => p.guru.includes(g))) sc += 12;
       }
     }
     // sebarkan blok pelajaran sama ke hari berlainan
@@ -493,6 +550,26 @@
       for (const [key, arr] of Object.entries(per)) if (new Set(arr.map(c => pel[c.pel].subjek)).size > 1) isu.push({ jenis: "hubungan", kad: arr.map(c => c.id), hari: +key.split("|")[1], slot: -1, siapa: key.split("|")[0] });
     }
     void bil;
+    const tg = tugasAcara(P);
+    if (tg.length) {
+      const st = binaKeadaan(P);
+      for (const T of tg) {
+        const kira = {};
+        for (const kl of T.kelas) {
+          const perHari = {};
+          for (const d of T.hari) {
+            const g = guruTugas(st, T, kl, d), kad = Object.values(st.kelasKump[kl][d][T.rs] || {});
+            if (!g.length) { isu.push({ jenis: "tugasKosong", kad: [], hari: d, slot: T.rs, siapa: kl, acara: T.nama }); continue; }
+            for (const x of g) {
+              (perHari[x] = perHari[x] || []).push(d); (kira[x] = kira[x] || []).push(kl + "|" + d);
+              for (const tx of T.ts) { const o = st.guruOcc[x] && st.guruOcc[x][d][tx]; if (o && !kad.includes(o)) isu.push({ jenis: "tugasGuru", kad: [o, ...kad], hari: d, slot: tx, siapa: x, acara: T.nama }); }
+            }
+          }
+          if (T.unikHari) for (const [g, hs] of Object.entries(perHari)) if (hs.length > 1) isu.push({ jenis: "tugasHari", kad: [], hari: hs[1], slot: -1, siapa: g, kelas: kl, acara: T.nama });
+        }
+        if (T.unikKelas) for (const [g, arr] of Object.entries(kira)) { const k = new Set(arr.map(x => x.split("|")[0])); if (k.size > 1) isu.push({ jenis: "tugasKelas", kad: [], hari: -1, slot: -1, siapa: g, acara: T.nama, n: k.size }); }
+      }
+    }
     return isu;
   }
 
@@ -560,14 +637,27 @@
     const tIdx = Object.fromEntries(P.guru.map((g, i) => [g.id, i]));
     const classes = P.kelas.map(k => ({ code: k.kod, name: k.nama || "", level: String(k.tahun), teacher: k.guruKelas || "", entries: [] }));
     const cIdx = Object.fromEntries(P.kelas.map((k, i) => [k.id, i]));
+    const tugasE = [];
     for (const k of P.kelas) {
       const th = tahapKelas(t, k);
       for (const a of t.acara || []) {
         if (a.tahap && a.tahap.length && th && !a.tahap.includes(th.id)) continue;
-        for (const h of a.hari || []) classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, teacher: a.guru || "" });
+        for (const h of a.hari || []) {
+          if (a.guruDari !== undefined && a.guruDari !== "" && +a.guruDari >= 0) { tugasE.push({ a, k, h }); continue; }
+          classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, teacher: a.guru || "" });
+        }
       }
     }
     const bilikN = Object.fromEntries(P.bilik.map(b => [b.id, b.nama]));
+    if (tugasE.length) {
+      const st = binaKeadaan(P);
+      for (const { a, k, h } of tugasE) {
+        const d = t.hari.indexOf(h); if (d < 0) continue;
+        const gs = guruTugas(st, { rs: +a.guruDari }, k.id, d);
+        classes[cIdx[k.id]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, teacher: gs.map(g => (guru[g] || {}).nama || "").join(" / ") });
+        for (const g of gs) if (tIdx[g] !== undefined) teachers[tIdx[g]].entries.push({ day: h, start: a.mula, end: a.tamat, subject: a.nama, class: k.kod });
+      }
+    }
     for (const c of P.kad) {
       if (c.hari < 0) continue; const p = pel[c.pel]; if (!p) continue;
       const day = t.hari[c.hari];
@@ -716,7 +806,7 @@
   const API = {
     kodKelasAgihan, barisDariAgihanGuru,
     HARI_LALAI, toMin, toHHMM, uid, tetapanLalai, projekKosong, bilSlot, masaSlot, masaTamat, slotSeragam, locengTahap, tahapKelas, availKelas,
-    kelasPel, kumpPel, bilikCalon, pilihBilik, tiadaSet,
+    kelasPel, kumpPel, bilikCalon, pilihBilik, tiadaSet, tugasAcara, guruTugas,
     pecahanLalai, pecahanSah, selaraskanKad, binaKeadaan, pasang, cabut, strukturOK, pertembungan,
     Penjana, janaSync, kemaskan, jumlahSkor, skorLembut, semakSemua, importJadualHtml, eksportJadualHtml, parseCSV, barisDariCSV, importAgihan
   };

@@ -88,6 +88,7 @@
   .kad { height:100%; border-radius:8px; padding:4px 5px; color:#fff; cursor:pointer; overflow:hidden; line-height:1.25; display:flex; flex-direction:column; user-select:none; }
   .kad b { font-size:12px; } .kad i { font-style:normal; opacity:.92; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .kad.pilih { outline:3px solid var(--ink); outline-offset:1px; }
+  .tugas { height:100%; border-radius:8px; background:repeating-linear-gradient(45deg,#fef3c7,#fef3c7 5px,#fff7ed 5px,#fff7ed 10px); color:#92400e; font-size:10px; font-weight:700; padding:3px 5px; line-height:1.2; }
   .kadset { display:flex; gap:2px; height:100%; } .kadset .kad { flex:1; min-width:0; }
   /* senarai gaya aSc (Guru / Kelas / Subjek) */
   table.asc-t { border-collapse:collapse; width:100%; font-size:13px; }
@@ -119,7 +120,7 @@
   .tt.induk tbody th.rh:hover { background:var(--accbg); color:var(--acc); }
   .tt.induk td { height:22px; border-radius:0; background:#f8fafc; border-right:1px solid #edf1f4; border-bottom:1px solid #e3e9ee; }
   .tt.induk td.d0, .tt.induk th.d0 { border-left:2px solid #94a3b8; }
-  .tt.induk td.blk { background:#e9eef2; } .tt.induk td.blk:empty::after { content:""; }
+  .tt.induk td.blk { background:#e9eef2; } .tt.induk td.tg { background:repeating-linear-gradient(45deg,#fde68a,#fde68a 3px,#fef3c7 3px,#fef3c7 6px); } .tt.induk td.blk:empty::after { content:""; }
   .tt.induk tbody tr:hover td { filter:brightness(.97); }
   .kad.ki { border-radius:3px; padding:0 2px; font-size:10px; font-weight:700; line-height:22px; display:block; text-align:center; white-space:nowrap; text-overflow:clip; position:relative; text-shadow:0 1px 1px #0005; }
   .kad.ki.kolab::after { content:""; position:absolute; right:0; top:0; border-style:solid; border-width:0 8px 8px 0; border-color:transparent #fff transparent transparent; opacity:.9; }
@@ -383,15 +384,15 @@ function tRingkasan() {
   <div class="card"><h2>Beban guru tertinggi</h2><table class="simple">${guruTop || `<tr><td class="muted">Tiada guru.</td></tr>`}</table></div>`;
 }
 
-const JENIS_ISU = { kelas: "Kelas bertembung", guru: "Guru bertembung", bilik: "Bilik bertembung", luar: "Di luar waktu / rehat / masa tidak tersedia", hadGuru: "Melebihi had masa sehari guru", hubungan: "Hubungan subjek dilanggar" };
+const JENIS_ISU = { kelas: "Kelas bertembung", guru: "Guru bertembung", bilik: "Bilik bertembung", luar: "Di luar waktu / rehat / masa tidak tersedia", hadGuru: "Melebihi had masa sehari guru", hubungan: "Hubungan subjek dilanggar", tugasKosong: "Acara tiada guru (waktu sumber kosong)", tugasGuru: "Guru acara mengajar kelas lain pada masa acara", tugasHari: "Guru acara sama lebih sekali (kelas sama)", tugasKelas: "Guru acara sama untuk beberapa kelas" };
 function htmlSemakan(isu) {
   const belum = P.kad.filter(c => c.hari < 0);
   if (!isu.length && !belum.length) return `<div class="card"><h2>Semakan</h2><p><span class="pill ok">Tiada masalah</span> Semua kad diletak dan semua kekangan dipatuhi.</p></div>`;
   const t = P.tetapan, kira = {};
   isu.forEach(i => kira[i.jenis] = (kira[i.jenis] || 0) + 1);
-  const siapa = i => i.jenis === "guru" || i.jenis === "hadGuru" ? namaGuru(i.siapa) : i.jenis === "bilik" ? namaBilik(i.siapa) : namaKelas(i.siapa);
+  const siapa = i => i.jenis === "tugasHari" ? namaGuru(i.siapa) + " (" + namaKelas(i.kelas) + ")" : i.jenis === "tugasKelas" ? namaGuru(i.siapa) + " (" + i.n + " kelas)" : i.jenis === "guru" || i.jenis === "hadGuru" || i.jenis === "tugasGuru" ? namaGuru(i.siapa) : i.jenis === "bilik" ? namaBilik(i.siapa) : namaKelas(i.siapa);
   const kad = id => { const c = byId(P.kad, id), p = c && byId(P.pelajaran, c.pel); return p ? subjekOf(p.subjek).kod + " " + namaKelasP(p) : "?"; };
-  const rows = isu.slice(0, 40).map(i => `<tr><td><span class="pill ${i.jenis === "luar" || i.jenis === "hubungan" ? "warn" : "bad"}">${esc(JENIS_ISU[i.jenis] || i.jenis)}</span></td><td>${esc(siapa(i))}</td>
+  const rows = isu.slice(0, 40).map(i => `<tr><td><span class="pill ${["luar", "hubungan", "tugasKelas", "tugasKosong"].includes(i.jenis) ? "warn" : "bad"}">${esc(JENIS_ISU[i.jenis] || i.jenis)}</span></td><td>${esc(siapa(i))}</td>
     <td>${esc(t.hari[i.hari] || "")}${i.slot >= 0 ? " " + esc(E.masaSlot(t, i.slot)) : ""}</td><td class="small">${esc([...new Set(i.kad)].map(kad).join(", "))}</td></tr>`).join("");
   return `<div class="card"><h2>Semakan (Verification)</h2>
     <div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(kira).map(([j, n]) => `<span class="pill ${j === "luar" || j === "hubungan" ? "warn" : "bad"}">${esc(JENIS_ISU[j] || j)}: ${n}</span>`).join("")}${belum.length ? `<span class="pill warn">${belum.length} kad belum diletak</span>` : ""}</div>
@@ -533,9 +534,14 @@ function tTetapan() {
         <label class="f">Hari (koma)<input data-ac="${i}" data-k="hari" value="${esc((a.hari || []).join(","))}"></label>
         <label class="f">Mula<input type="time" data-ac="${i}" data-k="mula" value="${esc(a.mula)}"></label>
         <label class="f">Tamat<input type="time" data-ac="${i}" data-k="tamat" value="${esc(a.tamat)}"></label>
-        <label class="f">Tahap (koma, kosong = semua)<input data-ac="${i}" data-k="tahap" value="${esc((a.tahap || []).join(","))}"></label>
-        <label class="f">Label guru<input data-ac="${i}" data-k="guru" value="${esc(a.guru || "")}"></label>
+        <label class="f">Label guru (teks tetap)<input data-ac="${i}" data-k="guru" value="${esc(a.guru || "")}" ${a.guruDari >= 0 && a.guruDari !== "" && a.guruDari !== undefined ? "disabled" : ""}></label>
+        <label class="f">Guru acara = guru yang mengajar waktu<select data-ac="${i}" data-k="guruDari"><option value="">— tiada (guna label) —</option>${E.locengTahap(t, (t.tahap.find(th => (a.tahap || []).includes(th.id)) || null)).map((x, j) => `<option value="${j}" ${String(a.guruDari) === String(j) ? "selected" : ""}>Waktu ${j + 1} (${x.mula}–${x.tamat})</option>`).join("")}</select></label>
       </div>
+      <div class="row small" style="margin-top:8px;gap:6px;flex-wrap:wrap"><span class="muted">Tahap:</span>${t.tahap.map(th => `<label class="pill" style="cursor:pointer"><input type="checkbox" data-ac="${i}" data-k="tahapC" value="${esc(th.id)}" ${(a.tahap || []).includes(th.id) ? "checked" : ""}> ${esc(th.nama)}</label>`).join("")}<span class="muted">(tiada tanda = semua tahap)</span></div>
+      ${a.guruDari !== undefined && a.guruDari !== "" ? `<div class="row small" style="margin-top:6px;gap:14px;flex-wrap:wrap">
+        <label><input type="checkbox" data-ac="${i}" data-k="unikHari" ${a.unikHari !== false ? "checked" : ""}> Guru berbeza setiap hari (kelas sama)</label>
+        <label><input type="checkbox" data-ac="${i}" data-k="unikKelas" ${a.unikKelas !== false ? "checked" : ""}> Elakkan guru sama untuk kelas lain dalam minggu itu</label>
+        <span class="muted">Guru acara juga tidak akan diberi kelas lain pada masa acara.</span></div>` : ""}
       <div class="row" style="margin-top:6px"><button class="mini red" onclick="padamAcara(${i})"><i class="fa-solid fa-trash"></i> Padam</button></div>
     </div>`).join("");
   const hub = (t.hubungan || []).map((h, i) => `<div class="item"><div class="t"><b>Tidak pada hari yang sama</b><span class="muted small">Subjek dalam kumpulan ini tidak dijadualkan pada hari yang sama bagi kelas yang sama.</span></div>
@@ -599,6 +605,9 @@ document.addEventListener("change", e => {
   } else if (el.dataset.ac !== undefined) {
     const a = t.acara[+el.dataset.ac], k = el.dataset.k;
     if (k === "hari" || k === "tahap") a[k] = el.value.split(/[,\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+    else if (k === "tahapC") a.tahap = $$(`input[data-ac="${el.dataset.ac}"][data-k="tahapC"]:checked`).map(x => x.value);
+    else if (k === "guruDari") { if (el.value === "") { delete a.guruDari; delete a.unikHari; delete a.unikKelas; } else a.guruDari = +el.value; }
+    else if (k === "unikHari" || k === "unikKelas") a[k] = el.checked;
     else a[k] = el.value;
   } else {
     const id = el.id;
@@ -1027,10 +1036,21 @@ function kadEntiti(jenis, id) {
 function labelBlok(k, d, s) {
   const t = P.tetapan, th = E.tahapKelas(t, k), h = t.hari[d];
   const a = E.toMin(E.masaSlot(t, s, th)), b = E.toMin(E.masaTamat(t, s, th));
-  if (th) for (const r of th.rehat || []) if (a < E.toMin(r.tamat) && b > E.toMin(r.mula)) return "REHAT";
-  for (const e of t.acara || []) { if (!(e.hari || []).includes(h)) continue; if (e.tahap && e.tahap.length && th && !e.tahap.includes(th.id)) continue; if (a < E.toMin(e.tamat) && b > E.toMin(e.mula)) return e.nama; }
+  const lb = [];
+  for (const e of t.acara || []) { if (!(e.hari || []).includes(h)) continue; if (e.tahap && e.tahap.length && th && !e.tahap.includes(th.id)) continue; if (a < E.toMin(e.tamat) && b > E.toMin(e.mula)) {
+    let n = e.nama; if (e.guruDari !== undefined && e.guruDari !== "" && st && k) { const gs = E.guruTugas(st, { rs: +e.guruDari }, k.id, d); if (gs.length) n += " — " + gs.map(singGuru).join(" / "); }
+    lb.push(n); } }
+  if (th) for (const r of th.rehat || []) if (a < E.toMin(r.tamat) && b > E.toMin(r.mula)) lb.push("REHAT");
+  if (lb.length) return lb.join(" + ");
   if (k && (k.tiada || []).includes(h + "|" + s)) return "—";
   return "";
+}
+// tugas acara guru pada (hari, slot), cth "PEMBENTUKAN KARAKTER 1A"
+function tugasGuruDi(gid, d, s) {
+  const out = [];
+  for (const T of st.tugas || []) { if (!T.hari.has(d) || !T.ts.includes(s)) continue;
+    for (const kl of T.kelas) if (E.guruTugas(st, T, kl, d).includes(gid)) out.push(T.nama + " " + namaKelas(kl)); }
+  return out;
 }
 function kandunganKad(c, jenis) {
   const p = st.pel[c.pel], s = subjekOf(p.subjek);
@@ -1067,7 +1087,8 @@ function tJadual() {
         } else if (av && !av[d][s]) {
           h += `<td class="blk" data-d="${d}" data-s="${s}">${esc(labelBlok(k, d, s))}</td>`;
         } else {
-          h += `<td data-d="${d}" data-s="${s}" class="${tiada.has(t.hari[d] + "|" + s) ? "tiada" : ""}"></td>`;
+          const tg = g ? tugasGuruDi(g.id, d, s) : [];
+          h += `<td data-d="${d}" data-s="${s}" class="${tiada.has(t.hari[d] + "|" + s) ? "tiada" : ""}">${tg.length ? `<div class="tugas">${esc(tg.join(", "))}</div>` : ""}</td>`;
         }
       }
       h += `</tr>`;
@@ -1129,7 +1150,8 @@ function tInduk() {
           x += span - 1;
         } else {
           const blk = r.av && !r.av[d][x], td = r.tiada && r.tiada[d][x];
-          h += `<td class="${cls}${blk ? " blk" : ""}${td ? " tiada" : ""}" data-e="${r.id}" data-d="${d}" data-s="${x}"></td>`;
+          const tg = jenis === "induk-guru" ? tugasGuruDi(r.id, d, x) : [];
+          h += `<td class="${cls}${blk ? " blk" : ""}${td ? " tiada" : ""}${tg.length ? " tg" : ""}" data-e="${r.id}" data-d="${d}" data-s="${x}"${tg.length ? ` title="${esc(tg.join(", "))}"` : ""}></td>`;
         }
       }
     }
@@ -1336,7 +1358,7 @@ function htmlCetakEntiti(jenis, id) {
         const lb = labelBlok(k, d, s);
         let n = 1; while (s + n < S && av && !av[d][s + n] && labelBlok(k, d, s + n) === lb && !kads.some(x => x.hari === d && x.slot === s + n)) n++;
         h += `<td class="bk" colspan="${n}">${esc(lb)}</td>`; s += n - 1;
-      } else h += `<td></td>`;
+      } else { const tg = g ? tugasGuruDi(g.id, d, s) : []; h += tg.length ? `<td class="bk"><b>${esc(tg.join(", "))}</b></td>` : `<td></td>`; }
     }
     h += `</tr>`;
   });
