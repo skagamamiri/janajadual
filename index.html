@@ -157,6 +157,17 @@
   .rk-pv { position:sticky; top:calc(var(--hdr) + 10px); min-width:0; }
   .pv-kotak { margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#e5e7eb; overflow:hidden; position:relative; }
   .pratonton { position:absolute; left:0; top:0; transform-origin:top left; background:#fff; padding:12px; box-shadow:0 4px 20px #0002; }
+  .pg.bebas { position:relative; overflow:hidden; }
+  #cetak .pg.bebas, .pratonton .pg.bebas { width:279mm; height:190mm; min-height:0 !important; padding:0 !important; }
+  .pg.bebas .el { position:absolute; box-sizing:border-box; }
+  .pg.bebas .el > .pt { height:100%; } .pg.bebas .el > .pt td { height:auto !important; }
+  .pg.bebas .el .kp, .pg.bebas .el .lg { margin:0; }
+  .pratonton .pg.bebas .el { cursor:move; outline:1px dashed transparent; }
+  .pratonton .pg.bebas .el:hover { outline-color:#0f766e88; }
+  .pratonton .pg.bebas .el.dipilih { outline:2px solid #0f766e; z-index:5; }
+  .pratonton .pg.bebas .el .rs { position:absolute; right:-6px; bottom:-6px; width:14px; height:14px; background:#0f766e; border:2px solid #fff; border-radius:4px; cursor:nwse-resize; display:none; }
+  .pratonton .pg.bebas .el.dipilih .rs { display:block; }
+  #cetak .el .rs { display:none; }
   .pratonton .pt hr, #cetak .pt hr { border:0; border-top:1px dashed #0004; margin:2px 0; }
   @media (max-width:900px) { .reka { grid-template-columns:1fr; } .rk-pv { position:static; } }
   @media print {
@@ -1437,7 +1448,8 @@ function htmlCetakEntiti(jenis, id) {
   }
   const masaTh = s => R.tunjukMasa ? `${E.masaSlot(t, s, thK)}<br>${E.masaTamat(t, s, thK)}` : `${s + 1}`;
   const td = (o, span) => `<td ${span}="${o.len}" class="${o.cls}" style="${o.gaya || ""}">${o.h}</td>`;
-  let h = `<div class="pg">${kepalaCetak(tajuk, sub + " • " + esc(P.nama))}<table class="pt">`;
+  const kpH = kepalaCetak(tajuk, sub + " • " + esc(P.nama));
+  let h = `<table class="pt">`;
   if (R.hariBaris) {
     h += `<tr><th style="width:60px">HARI</th>${awal.length ? `<th style="width:78px">${esc(awal[0].mula)}-${esc(awal[0].tamat)}</th>` : ""}${Array.from({ length: S }, (_, s) => `<th>${masaTh(s)}</th>`).join("")}</tr>`;
     t.hari.forEach((hari, d) => {
@@ -1452,19 +1464,21 @@ function htmlCetakEntiti(jenis, id) {
     h += `<tr><th style="width:70px">MASA</th>${t.hari.map(x => `<th>${esc(x)}</th>`).join("")}</tr>`;
     if (awal.length) h += `<tr><th>${esc(awal[0].mula)}-${esc(awal[0].tamat)}</th>${t.hari.map(hari => { const a = awal.find(x => (x.hari || []).includes(hari)); return `<td class="bk" style="height:auto">${a ? esc(a.nama) : ""}</td>`; }).join("")}</tr>`;
     for (let s = 0; s < S; s++) {
-      h += `<tr style="height:${tinggiBaris}px"><th>${masaTh(s)}</th>`;
+      h += `<tr${R.bebas ? "" : ` style="height:${tinggiBaris}px"`}><th>${masaTh(s)}</th>`;
       for (let d = 0; d < D; d++) if (sel[d][s]) h += td(sel[d][s], "rowspan");
       h += `</tr>`;
     }
   }
   h += `</table>`;
+  let lgH = "";
   if (R.tunjukSenarai && k) {
     const pl = P.pelajaran.filter(p => E.kelasPel(p).includes(k.id)).sort((a, b) => subjekOf(a.subjek).kod.localeCompare(subjekOf(b.subjek).kod));
-    h += `<div class="lg">${pl.map(p => `<div><b>${esc(subjekOf(p.subjek).kod)}</b> (${p.masa}) — ${esc(p.guru.map(namaGuru).join(" / "))}</div>`).join("")}</div>`;
+    lgH = `<div class="lg">${pl.map(p => `<div><b>${esc(subjekOf(p.subjek).kod)}</b> (${p.masa}) — ${esc(p.guru.map(namaGuru).join(" / "))}</div>`).join("")}</div>`;
   } else if (R.tunjukSenarai && g) {
-    h += `<div class="lg"><div>Jumlah: <b>${bebanGuru(g.id)} masa</b> seminggu</div></div>`;
+    lgH = `<div class="lg"><div>Jumlah: <b>${bebanGuru(g.id)} masa</b> seminggu</div></div>`;
   }
-  return h + `</div>`;
+  const nama = k ? k.kod + (k.nama ? " " + k.nama : "") : bl ? bl.nama : g.nama;
+  return bungkusPg(kpH, h, lgH, { nama, kelas: k ? k.kod : "", guru: k ? k.guruKelas || "" : g ? g.nama : "", sesi: P.nama, projek: P.nama });
 }
 function htmlInduk() {
   const t = P.tetapan, S = E.bilSlot(t);
@@ -1521,6 +1535,7 @@ function cssReka(skop) {
   ${skop} .pt td.ws { color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.35); }
   ${skop} .pt td small { opacity:.85; }
   ${skop} .lg { margin-top:8px; font-size:${9.5 * sz}px; columns:3; ${r.latar ? `background:${hexA("#ffffff", .75)}; padding:6px; border-radius:${r.bucu}px;` : ""} }
+  ${skop} .pg.bebas { width:${r.orientasi === "portrait" ? "192mm" : "279mm"}; height:${r.orientasi === "portrait" ? "277mm" : "190mm"}; }
   ${skop} .pt.lj td { height:auto; } ${skop} .pt.lj th { height:auto; }
   ${skop} .pt.ind td { height:${18 * sz}px; font-size:${8 * sz}px; }`;
 }
@@ -1542,7 +1557,7 @@ function bacaGambar(fail, maks, cb) {
     const k = Math.min(1, maks / Math.max(im.width, im.height)), cv = document.createElement("canvas");
     cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
     cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
-    const png = /png|svg|gif/i.test(fail.type) && maks <= 600;
+    const png = /png|svg|gif|webp/i.test(fail.type) && maks <= 800; // kekalkan lutsinar untuk logo / stiker
     cb(cv.toDataURL(png ? "image/png" : "image/jpeg", 0.82));
   }; im.src = rd.result; };
   rd.readAsDataURL(fail);
@@ -1557,11 +1572,12 @@ function htmlPratonton() {
 function kemasPratonton() {
   pasangCssReka();
   const pv = $("#pvIsi"); if (!pv) return;
-  const r = reka(), lebar = r.orientasi === "landscape" ? 1060 : 750, tinggi = r.orientasi === "landscape" ? 750 : 1060;
+  const r = reka(), lebar = r.orientasi === "landscape" ? 1080 : 752, tinggi = r.orientasi === "landscape" ? 742 : 1072;
   pv.innerHTML = htmlPratonton();
   const box = $("#pvKotak"), skala = Math.min(1, (box.clientWidth - 2) / lebar);
   pv.style.width = lebar + "px"; pv.style.minHeight = tinggi + "px"; pv.style.transform = `scale(${skala})`;
   box.style.height = Math.max(tinggi, pv.scrollHeight) * skala + 4 + "px";
+  ikatSeret();
 }
 function htmlReka() {
   const r = reka(), rk = (k, lbl, jenis, extra) => `<label class="f">${lbl}<input type="${jenis}" data-rk="${k}" ${jenis === "checkbox" ? (r[k] ? "checked" : "") : `value="${esc(r[k])}"`} ${extra || ""}></label>`;
@@ -1595,15 +1611,88 @@ function htmlReka() {
       <div class="row"><select id="pvJenis"><option value="kelas" ${pratontonJenis === "kelas" ? "selected" : ""}>Kelas</option><option value="guru" ${pratontonJenis === "guru" ? "selected" : ""}>Guru</option></select>
         <select id="pvId" class="grow">${opsyen.map(([id, n]) => `<option value="${id}" ${id === pratontonId ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
         <button class="pri mini" onclick="cetak(pratontonJenis)"><i class="fa-solid fa-print"></i> Cetak semua ${pratontonJenis === "kelas" ? "kelas" : "guru"}</button></div>
+      <label class="item" style="margin-top:8px;cursor:pointer"><input type="checkbox" data-rk="bebas" ${r.bebas ? "checked" : ""} style="width:18px;height:18px"> <b>Susun bebas (seret & lepas)</b> <span class="muted small">— alih tajuk, jadual, senarai; tambah teks & gambar/stiker</span></label>
+      <div id="pvAlat" style="margin-top:6px"></div>
       <div id="pvKotak" class="pv-kotak"><div id="pvIsi" class="pratonton"></div></div>
     </div>
   </div></div>`;
 }
+/* ---- susun bebas (drag & drop) ---- */
+const LETAK_LALAI = () => ({ kp: { x: 0, y: 0, w: 100 }, jadual: { x: 0, y: 11, w: 100, h: 72 }, lg: { x: 0, y: 86, w: 100 }, teks: [], gambar: [] });
+const letak = () => { const r = reka(); r.letak = Object.assign(LETAK_LALAI(), r.letak || {}); return r.letak; };
+const gayaEl = o => `left:${o.x}%;top:${o.y}%;width:${o.w}%;${o.h ? `height:${o.h}%;` : ""}`;
+function gantiToken(s, ctx) { return esc(s).replace(/\{(nama|kelas|guru|sesi|projek)\}/gi, (m, k) => esc(ctx[k.toLowerCase()] || "")); }
+// bungkus satu muka cetakan: mod biasa (aliran) atau mod bebas (elemen diletak ikut kedudukan %)
+function bungkusPg(kp, jadual, lg, ctx) {
+  const R = reka();
+  if (!R.bebas) return `<div class="pg">${kp}${jadual}${lg}</div>`;
+  const L = letak();
+  let h = `<div class="pg bebas">`;
+  h += `<div class="el" data-el="kp" style="${gayaEl(L.kp)}">${kp}</div>`;
+  h += `<div class="el" data-el="jadual" style="${gayaEl(L.jadual)}">${jadual}</div>`;
+  if (lg) h += `<div class="el" data-el="lg" style="${gayaEl(L.lg)}">${lg}</div>`;
+  for (const g of L.gambar) h += `<div class="el" data-el="g:${g.id}" style="${gayaEl(g)}"><img src="${g.src}" style="width:100%;display:block;opacity:${g.legap ?? 1}"></div>`;
+  for (const t of L.teks) h += `<div class="el teks" data-el="t:${t.id}" style="${gayaEl(t)}font-size:${t.saiz || 14}px;color:${t.warna || "#000"};font-weight:${t.tebal ? 800 : 400};text-align:${t.jajar || "center"}">${gantiToken(t.teks || "", ctx).replace(/\n/g, "<br>")}</div>`;
+  return h + `</div>`;
+}
+let pilihEl = null;
+function elObj(id) { const L = letak(); if (id.startsWith("t:")) return L.teks.find(x => x.id === id.slice(2)); if (id.startsWith("g:")) return L.gambar.find(x => x.id === id.slice(2)); return L[id]; }
+function tambahTeksBebas() { snap(); const L = letak(); const id = E.uid("t"); L.teks.push({ id, teks: "Teks baharu — {nama}", x: 30, y: 45, w: 40, saiz: 18, warna: "#0f766e", tebal: true, jajar: "center" }); pilihEl = "t:" + id; ditukar(); kemasPratonton(); kemasAlat(); }
+function tambahGambarBebas(f) { bacaGambar(f, 800, url => { snap(); const L = letak(); const id = E.uid("g"); L.gambar.push({ id, src: url, x: 80, y: 2, w: 15 }); pilihEl = "g:" + id; ditukar(); kemasPratonton(); kemasAlat(); }); }
+function buangElBebas() { if (!pilihEl || !/^[tg]:/.test(pilihEl)) return; snap(); const L = letak(), id = pilihEl.slice(2); L.teks = L.teks.filter(x => x.id !== id); L.gambar = L.gambar.filter(x => x.id !== id); pilihEl = null; ditukar(); kemasPratonton(); kemasAlat(); }
+function setSemulaLetak() { if (!confirm("Set semula kedudukan semua elemen?")) return; snap(); const L = letak(); Object.assign(L, { kp: LETAK_LALAI().kp, jadual: LETAK_LALAI().jadual, lg: LETAK_LALAI().lg }); ditukar(); kemasPratonton(); }
+function kemasAlat() {
+  const a = $("#pvAlat"); if (!a) return;
+  const R = reka();
+  if (!R.bebas) { a.innerHTML = ""; return; }
+  const o = pilihEl && elObj(pilihEl);
+  const nama = { kp: "Tajuk & logo", jadual: "Jadual", lg: "Senarai subjek" }[pilihEl] || (pilihEl && pilihEl[0] === "t" ? "Teks" : pilihEl ? "Gambar" : "");
+  let h = `<div class="row" style="flex-wrap:wrap;gap:6px"><button class="mini" onclick="tambahTeksBebas()"><i class="fa-solid fa-font"></i> + Teks</button>
+    <label class="btn mini"><i class="fa-solid fa-image"></i> + Gambar / stiker<input type="file" accept="image/*" style="display:none" onchange="tambahGambarBebas(this.files[0])"></label>
+    <button class="mini" onclick="setSemulaLetak()"><i class="fa-solid fa-rotate-left"></i> Susunan asal</button>
+    <span class="muted small grow">Seret untuk alih, tarik bucu ↘ untuk ubah saiz.${o ? ` Dipilih: <b>${nama}</b>` : ""}</span></div>`;
+  if (o && pilihEl[0] === "t") h += `<div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px"><textarea id="alTeks" rows="2" style="min-height:0;flex:1;min-width:200px;font-family:inherit">${esc(o.teks)}</textarea>
+      <input type="number" id="alSaiz" min="8" max="96" value="${o.saiz || 14}" style="width:70px" title="Saiz">
+      <input type="color" id="alWarna" value="${o.warna || "#000000"}" title="Warna">
+      <label class="small"><input type="checkbox" id="alTebal" ${o.tebal ? "checked" : ""}> Tebal</label>
+      <select id="alJajar"><option value="left" ${o.jajar === "left" ? "selected" : ""}>Kiri</option><option value="center" ${(o.jajar || "center") === "center" ? "selected" : ""}>Tengah</option><option value="right" ${o.jajar === "right" ? "selected" : ""}>Kanan</option></select>
+      <button class="mini red" onclick="buangElBebas()"><i class="fa-solid fa-trash"></i></button></div>
+      <p class="muted small" style="margin:2px 0 0">Token: {nama} = nama kelas/guru, {guru} = guru kelas, {sesi} = nama projek.</p>`;
+  else if (o && pilihEl[0] === "g") h += `<div class="row" style="margin-top:6px;gap:6px"><label class="small">Kelegapan <input type="range" id="alLegap" min="0.1" max="1" step="0.05" value="${o.legap ?? 1}"></label><button class="mini red" onclick="buangElBebas()"><i class="fa-solid fa-trash"></i> Buang gambar</button></div>`;
+  a.innerHTML = h;
+  const ub = (k, f) => { const el = $("#" + k); if (el) el.oninput = () => { const ob = elObj(pilihEl); if (!ob) return; f(ob, el); ditukar(); kemasPratonton(); }; };
+  ub("alTeks", (ob, el) => ob.teks = el.value); ub("alSaiz", (ob, el) => ob.saiz = +el.value || 14); ub("alWarna", (ob, el) => ob.warna = el.value);
+  ub("alTebal", (ob, el) => ob.tebal = el.checked); ub("alJajar", (ob, el) => ob.jajar = el.value); ub("alLegap", (ob, el) => ob.legap = +el.value);
+}
+// seret & ubah saiz dalam pratonton
+function ikatSeret() {
+  const pv = $("#pvIsi"); if (!pv || !reka().bebas) return;
+  pv.querySelectorAll(".pg.bebas .el").forEach(el => { if (el.dataset.el === pilihEl) el.classList.add("dipilih"); if (!el.querySelector(".rs")) el.insertAdjacentHTML("beforeend", `<span class="rs"></span>`); });
+  pv.onpointerdown = e => {
+    const el = e.target.closest(".el"); if (!el) { pilihEl = null; pv.querySelectorAll(".el.dipilih").forEach(x => x.classList.remove("dipilih")); kemasAlat(); return; }
+    e.preventDefault();
+    const id = el.dataset.el, o = elObj(id); if (!o) return;
+    if (pilihEl !== id) { pilihEl = id; pv.querySelectorAll(".el").forEach(x => x.classList.toggle("dipilih", x === el)); kemasAlat(); }
+    const pg = el.closest(".pg").getBoundingClientRect(), saiz = e.target.classList.contains("rs");
+    const x0 = e.clientX, y0 = e.clientY, a = { ...o }, elH = el.getBoundingClientRect().height / pg.height * 100;
+    const snapv = v => Math.round(v * 2) / 2;
+    snap();
+    const gerak = ev => {
+      const dx = (ev.clientX - x0) / pg.width * 100, dy = (ev.clientY - y0) / pg.height * 100;
+      if (saiz) { o.w = Math.max(3, Math.min(100 - o.x, snapv(a.w + dx))); if (a.h !== undefined || id === "jadual") o.h = Math.max(5, Math.min(100 - o.y, snapv((a.h ?? elH) + dy))); }
+      else { const hh = o.h !== undefined ? o.h : elH; o.x = Math.max(0, Math.min(100 - o.w, snapv(a.x + dx))); o.y = Math.max(0, Math.min(Math.max(0, 100 - hh), snapv(a.y + dy))); }
+      el.style.left = o.x + "%"; el.style.top = o.y + "%"; el.style.width = o.w + "%"; if (o.h !== undefined) el.style.height = o.h + "%";
+    };
+    const habis = () => { window.removeEventListener("pointermove", gerak); window.removeEventListener("pointerup", habis); ditukar(); };
+    window.addEventListener("pointermove", gerak); window.addEventListener("pointerup", habis);
+  };
+}
+
 function lepasRenderCetak() {
   const j = $("#pvJenis"), i = $("#pvId");
   if (j) j.onchange = e => { pratontonJenis = e.target.value; pratontonId = null; render(); };
   if (i) i.onchange = e => { pratontonId = e.target.value; kemasPratonton(); };
-  requestAnimationFrame(kemasPratonton); muatFon(reka().font).then(() => kemasPratonton());
+  kemasAlat(); requestAnimationFrame(kemasPratonton); muatFon(reka().font).then(() => kemasPratonton());
 }
 window.addEventListener("resize", () => { if (tab === "cetak") kemasPratonton(); });
 function pilihTema(k) { snap(); Object.assign(reka(), TEMA[k], { tema: k }); ditukar(); render(); }
@@ -1618,7 +1707,7 @@ document.addEventListener("input", e => {
   else r[k] = el.value;
   if (el.type === "range") { const l = el.closest("label"); if (l && l.firstChild && l.firstChild.nodeType === 3) l.firstChild.textContent = l.firstChild.textContent.replace(/\(.*\)/, `(${k === "latarKabur" || k === "legapSel" ? Math.round(+el.value * 100) + "%" : k === "saiz" ? el.value + "%" : el.value + "px"})`); }
   r.tema = r.tema && TEMA[r.tema] && TEMA[r.tema][k] !== undefined && TEMA[r.tema][k] !== r[k] ? "suai" : r.tema;
-  ditukar(); kemasPratonton();
+  ditukar(); kemasPratonton(); if (k === "bebas") kemasAlat();
 });
 
 function cetak(jenis, satu) {
